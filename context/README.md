@@ -15,6 +15,15 @@ This directory contains modular knowledge files that document Agor's concepts, a
 - **[architecture.md](concepts/architecture.md)** - System design, storage structure, data flow
 - **[design.md](concepts/design.md)** - UI/UX principles and component patterns
 
+### Explorations (Work in Progress)
+Experimental ideas and designs not yet crystallized into concepts. These represent active thinking and may graduate to `concepts/` when ready:
+
+- **[state-management.md](explorations/state-management.md)** - State persistence architecture (Drizzle + LibSQL)
+- **[agent-interface.md](explorations/agent-interface.md)** - Agent abstraction layer (Claude Code, Codex, Gemini, etc.)
+- **[state-broadcasting.md](explorations/state-broadcasting.md)** - Real-time sync & multi-client architecture (IPC, WebSocket, conflict resolution)
+
+**Lifecycle:** `explorations/` → `concepts/` when design is validated and ready to be official
+
 ### Primitives (Deep Dives)
 Future location for detailed explorations of each primitive:
 - `primitives/session.md` - Sessions in depth
