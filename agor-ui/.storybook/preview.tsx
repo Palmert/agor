@@ -35,6 +35,12 @@ const preview: Preview = {
         { name: 'light', value: '#ffffff' },
       ],
     },
+    options: {
+      storySort: {
+        order: ['App', '*'],
+      },
+    },
+    viewMode: 'story',
   },
   decorators: [withAntdTheme],
   globalTypes: {
@@ -52,6 +58,9 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+  },
+  initialGlobals: {
+    theme: 'dark',
   },
 };
 
