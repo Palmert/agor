@@ -11,6 +11,8 @@ import type { NewSessionConfig } from '../components/NewSessionModal';
 
 interface UseSessionActionsResult {
   createSession: (config: NewSessionConfig) => Promise<Session | null>;
+  updateSession: (sessionId: SessionID, updates: Partial<Session>) => Promise<Session | null>;
+  deleteSession: (sessionId: SessionID) => Promise<boolean>;
   forkSession: (sessionId: SessionID, prompt: string) => Promise<Session | null>;
   spawnSession: (sessionId: SessionID, prompt: string) => Promise<Session | null>;
   creating: boolean;
@@ -141,8 +143,49 @@ export function useSessionActions(client: AgorClient | null): UseSessionActionsR
     }
   };
 
+  const updateSession = async (
+    sessionId: SessionID,
+    updates: Partial<Session>
+  ): Promise<Session | null> => {
+    if (!client) {
+      setError('Client not connected');
+      return null;
+    }
+
+    try {
+      setError(null);
+      const updatedSession = await client.service('sessions').patch(sessionId, updates);
+      return updatedSession;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update session';
+      setError(message);
+      console.error('Failed to update session:', err);
+      return null;
+    }
+  };
+
+  const deleteSession = async (sessionId: SessionID): Promise<boolean> => {
+    if (!client) {
+      setError('Client not connected');
+      return false;
+    }
+
+    try {
+      setError(null);
+      await client.service('sessions').remove(sessionId);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete session';
+      setError(message);
+      console.error('Failed to delete session:', err);
+      return false;
+    }
+  };
+
   return {
     createSession,
+    updateSession,
+    deleteSession,
     forkSession,
     spawnSession,
     creating,

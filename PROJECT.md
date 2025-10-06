@@ -21,12 +21,14 @@
 ### ✅ Completed (Phases 1-2)
 
 **UI Prototype** (`apps/agor-ui/`)
+
 - Complete React + Ant Design component library with Storybook
 - SessionCard, SessionDrawer, SessionCanvas with React Flow
 - Board organization and session tree visualization
 - Mock data layer with 18+ realistic sessions
 
 **Backend Infrastructure** (`apps/agor-daemon/`, `packages/core/`)
+
 - FeathersJS REST + WebSocket daemon on :3030
 - Drizzle ORM + LibSQL with hybrid materialization strategy
 - Repository pattern: Sessions, Tasks, Messages, Repos, Boards
@@ -34,6 +36,7 @@
 - Git operations: clone, worktree management
 
 **CLI** (`apps/agor-cli/`)
+
 - `agor init` - Database initialization
 - `agor repo add/list/rm` - Repository management
 - `agor repo worktree add/list` - Worktree operations
@@ -41,6 +44,7 @@
 - `agor session load-claude <id>` - Import Claude Code sessions
 
 **Data Architecture**
+
 - Messages = immutable event log (append-only)
 - Tasks = mutable state containers (extracted from user messages)
 - Bulk insert endpoints (`/messages/bulk`, `/tasks/bulk`)
@@ -55,6 +59,7 @@
 ### 🚧 Phase 3: Session Lifecycle & Agent Integration
 
 **Session Management**
+
 - [ ] `agor session show <id>` - Detailed view with genealogy tree visualization
 - [ ] `agor session create` - Interactive session creation with agent selection
 - [ ] Fork/spawn operations with genealogy tracking
@@ -62,6 +67,7 @@
 - [ ] `agor session clear` - Delete all sessions/tasks/messages (with confirmation)
 
 **Agent Integration**
+
 - [ ] Agent adapter framework (abstract interface for Claude Code, Cursor, Codex, Gemini)
 - [ ] Claude Code native integration (launch agent with Agor context)
 - [ ] Session → Agent context passing (concepts, parent tasks, git state)
@@ -69,6 +75,7 @@
 - [ ] Bidirectional sync (agent events → Agor database)
 
 **Advanced Features**
+
 - [ ] Concept management (attach/detach knowledge nuggets to sessions)
 - [ ] Report generation (auto-generate structured learnings from tasks)
 - [ ] Daemon auto-start (spawn daemon if not running)
@@ -77,6 +84,7 @@
 ### 📋 Phase 4: UI Integration & Desktop App
 
 **Connect UI to Backend**
+
 - [ ] Replace mock data with daemon API calls
 - [ ] Real-time updates via WebSocket
 - [ ] Session creation flow integrated with daemon
@@ -84,6 +92,7 @@
 - [ ] Genealogy tree rendering from database
 
 **Desktop Packaging**
+
 - [ ] Electron/Tauri wrapper
 - [ ] Bundled daemon (auto-start on app launch)
 - [ ] System tray integration
@@ -98,6 +107,7 @@
 **Goal:** Full-featured local agent orchestrator with GUI + CLI
 
 **Core Capabilities:**
+
 - Multi-agent session management (Claude Code, Cursor, Codex, Gemini)
 - Visual session tree canvas with fork/spawn genealogy
 - Git worktree integration for isolated parallel sessions
@@ -106,6 +116,7 @@
 - Local-only (no cloud, SQLite-based)
 
 **Deliverables:**
+
 - Desktop app (Electron or Tauri)
 - Standalone CLI binary (`agor`)
 - Documentation + tutorials
@@ -117,6 +128,7 @@
 **Goal:** Real-time collaborative agent orchestration
 
 **New Capabilities:**
+
 - Cloud-hosted sessions (migrate LibSQL → PostgreSQL)
 - Real-time multiplayer (multiple devs, same session tree)
 - Shared concept libraries (team knowledge bases)
@@ -158,12 +170,14 @@ agor/
 ## Quick Start
 
 ### Run Daemon
+
 ```bash
 cd apps/agor-daemon
 pnpm dev  # Starts on :3030
 ```
 
 ### Use CLI
+
 ```bash
 # Initialize database
 pnpm agor init
@@ -176,6 +190,7 @@ pnpm agor session list
 ```
 
 ### Develop UI
+
 ```bash
 cd apps/agor-ui
 pnpm storybook  # Component development
@@ -185,32 +200,3 @@ pnpm dev        # Full app
 **See:** [CLAUDE.md](CLAUDE.md) for complete development guide.
 
 ---
-
-## Development Principles
-
-1. **Architecture-first** - Design docs in `context/` before implementation
-2. **Type-driven** - TypeScript types define interfaces, Drizzle schema defines storage
-3. **Storybook-first** (UI) - Components in isolation before integration
-4. **Repository pattern** - Abstract storage layer for local → cloud migration
-5. **Local-first** - V1 works completely offline, V2 adds cloud sync
-
----
-
-## Contributing
-
-**Before contributing:**
-
-1. Read [context/concepts/core.md](context/concepts/core.md) - Understand primitives and vision
-2. Read [CLAUDE.md](CLAUDE.md) - Development workflow and standards
-3. Check `context/explorations/` for architecture decisions
-
-**Code standards:**
-
-- **UI:** Follow [context/concepts/design.md](context/concepts/design.md)
-- **Backend:** Repository pattern, Drizzle ORM, FeathersJS services
-- **CLI:** oclif conventions, entity-based commands
-- **Types:** Shared via `@agor/core/types`
-
----
-
-**Philosophy:** Architecture docs crystallize decisions. Code implements them. The UI prototype validated the vision—now we build the engine.

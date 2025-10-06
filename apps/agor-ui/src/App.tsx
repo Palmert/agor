@@ -12,7 +12,8 @@ function App() {
   const { sessions, tasks, boards, loading, error: dataError } = useAgorData(client);
 
   // Session actions
-  const { createSession, forkSession, spawnSession } = useSessionActions(client);
+  const { createSession, forkSession, spawnSession, updateSession, deleteSession } =
+    useSessionActions(client);
 
   // Show connection error
   if (connectionError) {
@@ -120,6 +121,29 @@ function App() {
     console.log('Send prompt to session:', sessionId, prompt);
   };
 
+  // Handle update session
+  const handleUpdateSession = async (
+    sessionId: string,
+    updates: Partial<import('@agor/core/types').Session>
+  ) => {
+    const session = await updateSession(sessionId as import('@agor/core/types').SessionID, updates);
+    if (session) {
+      message.success('Session updated successfully!');
+    } else {
+      message.error('Failed to update session');
+    }
+  };
+
+  // Handle delete session
+  const handleDeleteSession = async (sessionId: string) => {
+    const success = await deleteSession(sessionId as import('@agor/core/types').SessionID);
+    if (success) {
+      message.success('Session deleted successfully!');
+    } else {
+      message.error('Failed to delete session');
+    }
+  };
+
   // Render main app
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
@@ -132,6 +156,8 @@ function App() {
         onForkSession={handleForkSession}
         onSpawnSession={handleSpawnSession}
         onSendPrompt={handleSendPrompt}
+        onUpdateSession={handleUpdateSession}
+        onDeleteSession={handleDeleteSession}
         onSettingsClick={() => console.log('Settings clicked')}
       />
     </ConfigProvider>

@@ -5,9 +5,9 @@
  */
 
 import { createClient, isDaemonRunning } from '@agor/core/api';
-import { extractRepoName } from '@agor/core/git';
+import { extractSlugFromUrl, isValidSlug } from '@agor/core/config';
 import type { Repo } from '@agor/core/types';
-import { Args, Command } from '@oclif/core';
+import { Args, Command, Flags } from '@oclif/core';
 import chalk from 'chalk';
 
 export default class RepoAdd extends Command {
@@ -16,6 +16,7 @@ export default class RepoAdd extends Command {
   static examples = [
     '<%= config.bin %> <%= command.id %> git@github.com:apache/superset.git',
     '<%= config.bin %> <%= command.id %> https://github.com/facebook/react.git',
+    '<%= config.bin %> <%= command.id %> https://github.com/apache/superset.git --slug my-org/custom-name',
   ];
 
   static args = {
@@ -25,8 +26,15 @@ export default class RepoAdd extends Command {
     }),
   };
 
+  static flags = {
+    slug: Flags.string({
+      char: 's',
+      description: 'Custom slug (org/name) for the repository (auto-extracted if not provided)',
+    }),
+  };
+
   async run(): Promise<void> {
-    const { args } = await this.parse(RepoAdd);
+    const { args, flags } = await this.parse(RepoAdd);
 
     // Check if daemon is running
     const daemonUrl = process.env.AGOR_DAEMON_URL || 'http://localhost:3030';
@@ -39,10 +47,27 @@ export default class RepoAdd extends Command {
     }
 
     try {
-      const repoName = extractRepoName(args.url);
+      // Extract slug from URL or use custom slug
+      let slug = flags.slug;
+
+      if (!slug) {
+        // Auto-extract slug from URL (e.g., github.com/apache/superset -> apache/superset)
+        slug = extractSlugFromUrl(args.url);
+        this.log('');
+        this.log(chalk.dim(`Auto-detected slug: ${chalk.cyan(slug)}`));
+      }
+
+      // Validate slug format
+      if (!isValidSlug(slug)) {
+        this.error(
+          `Invalid slug format: ${slug}\n` +
+            `Slug must be in format "org/name" (e.g., "apache/superset")\n` +
+            `Use --slug to specify a custom slug.`
+        );
+      }
 
       this.log('');
-      this.log(chalk.bold(`Cloning ${chalk.cyan(repoName)}...`));
+      this.log(chalk.bold(`Cloning ${chalk.cyan(slug)}...`));
       this.log(chalk.dim(`URL: ${args.url}`));
       this.log('');
 
@@ -52,7 +77,7 @@ export default class RepoAdd extends Command {
       // biome-ignore lint/suspicious/noExplicitAny: Dynamic Feathers service route not in ServiceTypes
       const repo = (await (client.service('repos/clone' as any) as any).create({
         url: args.url,
-        slug: repoName,
+        slug: slug,
       })) as Repo;
 
       this.log(`${chalk.green('✓')} Repository cloned and registered`);
@@ -67,7 +92,7 @@ export default class RepoAdd extends Command {
       this.log('');
 
       // Close socket and wait for it to close
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         client.io.on('disconnect', resolve);
         client.io.close();
         setTimeout(resolve, 1000); // Fallback timeout
