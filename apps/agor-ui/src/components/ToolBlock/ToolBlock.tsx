@@ -141,10 +141,69 @@ export const ToolBlock: React.FC<ToolBlockProps> = ({ messages }) => {
 
   const totalTools = toolInvocations.length;
 
+  // Generate smart description for tools
+  const getToolDescription = (toolUse: ToolUseBlock): string | null => {
+    const { name, input } = toolUse;
+
+    // Use explicit description if provided
+    if (typeof input.description === 'string') {
+      return input.description;
+    }
+
+    // Generate descriptions for common tools
+    switch (name) {
+      case 'Read':
+        if (input.file_path) {
+          const path = String(input.file_path);
+          const relativePath = path
+            .replace(/^\/Users\/[^/]+\/code\/[^/]+\//, '')
+            .replace(/^\/Users\/[^/]+\//, '~/');
+          return relativePath;
+        }
+        return null;
+
+      case 'Write':
+        if (input.file_path) {
+          const path = String(input.file_path);
+          const relativePath = path
+            .replace(/^\/Users\/[^/]+\/code\/[^/]+\//, '')
+            .replace(/^\/Users\/[^/]+\//, '~/');
+          return `Write ${relativePath}`;
+        }
+        return null;
+
+      case 'Edit':
+        if (input.file_path) {
+          const path = String(input.file_path);
+          const relativePath = path
+            .replace(/^\/Users\/[^/]+\/code\/[^/]+\//, '')
+            .replace(/^\/Users\/[^/]+\//, '~/');
+          return `Edit ${relativePath}`;
+        }
+        return null;
+
+      case 'Grep':
+        if (input.pattern) {
+          return `Search: ${input.pattern}`;
+        }
+        return null;
+
+      case 'Glob':
+        if (input.pattern) {
+          return `Find files: ${input.pattern}`;
+        }
+        return null;
+
+      default:
+        return null;
+    }
+  };
+
   // Build ThoughtChain items from tool invocations
   const thoughtChainItems: ThoughtChainProps['items'] = toolInvocations.map(
     ({ toolUse, toolResult }) => {
       const isError = toolResult?.is_error;
+      const description = getToolDescription(toolUse);
 
       return {
         title: (
@@ -153,7 +212,7 @@ export const ToolBlock: React.FC<ToolBlockProps> = ({ messages }) => {
             <span>{toolUse.name}</span>
           </div>
         ),
-        description: toolUse.input.description as string | undefined,
+        description: description || undefined,
         status: !toolResult ? 'pending' : isError ? 'error' : 'success',
         icon: toolResult ? (
           isError ? (
