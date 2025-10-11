@@ -58,7 +58,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
   repoOptions = [],
 }) => {
   const [form] = Form.useForm();
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>('claude-code');
   const [repoSetupMode, setRepoSetupMode] = useState<RepoSetupMode>('existing-worktree');
 
   const handleCreate = () => {
@@ -83,7 +83,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       });
 
       form.resetFields();
-      setSelectedAgent(null);
+      setSelectedAgent('claude-code');
       setRepoSetupMode('existing-worktree');
       onClose();
     });
@@ -91,7 +91,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
   const handleCancel = () => {
     form.resetFields();
-    setSelectedAgent(null);
+    setSelectedAgent('claude-code');
     setRepoSetupMode('existing-worktree');
     onClose();
   };

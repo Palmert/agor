@@ -8,7 +8,8 @@
 import { access, constants, mkdir, readdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createDatabase, initializeDatabase, seedInitialData } from '@agor/core/db';
+import { setConfigValue } from '@agor/core/config';
+import { createDatabase, createUser, initializeDatabase, seedInitialData } from '@agor/core/db';
 import { Command, Flags } from '@oclif/core';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
@@ -112,8 +113,8 @@ export default class Init extends Command {
       const worktreesExist = await this.pathExists(worktreesDir);
 
       if (!alreadyExists) {
-        // Fresh initialization - no prompts needed
-        await this.performInit(baseDir, dbPath);
+        // Fresh initialization
+        await this.performInit(baseDir, dbPath, flags.force);
         return;
       }
 
@@ -167,7 +168,7 @@ export default class Init extends Command {
       if (flags.force) {
         this.log(chalk.yellow('🗑️  --force flag set: deleting everything without prompts...'));
         await this.cleanupExisting(baseDir, dbPath, reposDir, worktreesDir);
-        await this.performInit(baseDir, dbPath);
+        await this.performInit(baseDir, dbPath, true);
         return;
       }
 
@@ -189,7 +190,7 @@ export default class Init extends Command {
 
       // User confirmed - clean up and reinitialize
       await this.cleanupExisting(baseDir, dbPath, reposDir, worktreesDir);
-      await this.performInit(baseDir, dbPath);
+      await this.performInit(baseDir, dbPath, false);
     } catch (error) {
       this.error(
         `Failed to initialize Agor: ${error instanceof Error ? error.message : String(error)}`
@@ -231,7 +232,11 @@ export default class Init extends Command {
   /**
    * Perform fresh initialization
    */
-  private async performInit(baseDir: string, dbPath: string): Promise<void> {
+  private async performInit(
+    baseDir: string,
+    dbPath: string,
+    skipPrompts: boolean = false
+  ): Promise<void> {
     // Create directory structure
     this.log('');
     this.log('📁 Creating directory structure...');
@@ -262,6 +267,11 @@ export default class Init extends Command {
     await seedInitialData(db);
     this.log(chalk.green('   ✓') + ' Created default board');
 
+    // Prompt for auth/multiplayer setup (unless --force)
+    if (!skipPrompts) {
+      await this.promptAuthSetup(dbPath);
+    }
+
     // Success summary
     this.log('');
     this.log(chalk.green.bold('✅ Agor initialized successfully!'));
@@ -273,8 +283,120 @@ export default class Init extends Command {
     this.log('   Logs: ' + chalk.cyan(join(baseDir, 'logs')));
     this.log('');
     this.log(chalk.bold('Next steps:'));
-    this.log("   - Run 'agor session create' to start a new session");
+    this.log("   - Run 'agor daemon' to start the daemon");
     this.log("   - Run 'agor session list' to view all sessions");
     this.log('');
+  }
+
+  /**
+   * Prompt user for auth/multiplayer setup
+   */
+  private async promptAuthSetup(dbPath: string): Promise<void> {
+    this.log('');
+
+    const { enableAuth } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'enableAuth',
+        message: 'Enable authentication and multiplayer features?',
+        default: false,
+      },
+    ]);
+
+    if (!enableAuth) {
+      this.log(chalk.gray('Authentication disabled. Running in single-user mode.'));
+      this.log('');
+      this.log(chalk.gray('You can enable auth later with:'));
+      this.log(chalk.gray('  agor config set daemon.requireAuth true'));
+      this.log(chalk.gray('  agor user create-admin'));
+      return;
+    }
+
+    // Enable auth in config
+    await setConfigValue('daemon.requireAuth', true);
+    await setConfigValue('daemon.allowAnonymous', false);
+    this.log(chalk.green('   ✓') + ' Enabled authentication');
+
+    // Prompt to create admin user
+    this.log('');
+    const { createAdmin } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'createAdmin',
+        message: 'Create an admin user?',
+        default: true,
+      },
+    ]);
+
+    if (!createAdmin) {
+      this.log('');
+      this.log(chalk.yellow('⚠ You must create an admin user before starting the daemon:'));
+      this.log(chalk.gray('  agor user create-admin'));
+      return;
+    }
+
+    // Prompt for user details
+    const { email, username, password } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'email',
+        message: 'Email:',
+        validate: (input: string) => {
+          if (!input || !input.includes('@')) {
+            return 'Please enter a valid email address';
+          }
+          return true;
+        },
+      },
+      {
+        type: 'input',
+        name: 'username',
+        message: 'Username:',
+        validate: (input: string) => {
+          if (!input || input.length < 2) {
+            return 'Username must be at least 2 characters';
+          }
+          return true;
+        },
+      },
+      {
+        type: 'password',
+        name: 'password',
+        message: 'Password:',
+        mask: '*',
+        validate: (input: string) => {
+          if (!input || input.length < 4) {
+            return 'Password must be at least 4 characters';
+          }
+          return true;
+        },
+      },
+    ]);
+
+    // Create admin user directly in database (no daemon required)
+    try {
+      const db = createDatabase({ url: `file:${dbPath}` });
+
+      const user = await createUser(db, {
+        email,
+        password,
+        name: username,
+        role: 'admin',
+      });
+
+      this.log(
+        chalk.green('   ✓') +
+          ` Admin user created successfully (ID: ${chalk.gray(user.user_id.substring(0, 8))})`
+      );
+    } catch (error) {
+      this.log('');
+      this.log(chalk.red('✗ Failed to create admin user'));
+      if (error instanceof Error) {
+        this.log(chalk.red(`  ${error.message}`));
+      }
+      this.log('');
+      this.log(chalk.gray('You can create an admin user later with:'));
+      this.log(chalk.gray('  agor user create-admin'));
+    }
   }
 }

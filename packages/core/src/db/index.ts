@@ -10,3 +10,5 @@ export * from './migrate';
 // Repositories
 export * from './repositories';
 export * from './schema';
+// User utilities
+export * from './user-utils';

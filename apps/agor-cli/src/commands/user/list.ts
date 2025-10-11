@@ -2,7 +2,10 @@
  * `agor user list` - List all users
  */
 
-import { createClient } from '@agor/core/api';
+import { join } from 'node:path';
+import { getConfigPath } from '@agor/core/config';
+import { createDatabase, users } from '@agor/core/db';
+import type { User } from '@agor/core/types';
 import { Command } from '@oclif/core';
 import chalk from 'chalk';
 import Table from 'cli-table3';
@@ -14,20 +17,38 @@ export default class UserList extends Command {
 
   async run(): Promise<void> {
     try {
-      // Create FeathersJS client
-      const client = createClient();
+      // Get database path
+      const configPath = getConfigPath();
+      const agorHome = join(configPath, '..');
+      const dbPath = join(agorHome, 'agor.db');
+
+      // Connect to database
+      const db = createDatabase({ url: `file:${dbPath}` });
 
       // Fetch users
-      // biome-ignore lint/suspicious/noExplicitAny: FeathersJS service typing issue
-      const result = await (client.service('users') as any).find();
-      const users = Array.isArray(result) ? result : result.data;
+      const rows = await db.select().from(users).all();
 
-      if (users.length === 0) {
+      if (rows.length === 0) {
         this.log(chalk.yellow('No users found'));
         this.log('');
-        this.log(chalk.gray('Create a user with: agor user create'));
+        this.log(chalk.gray('Create a user with: agor user create-admin'));
         process.exit(0);
       }
+
+      // Convert to User type
+      const userList: User[] = rows.map(row => {
+        const data = row.data as { avatar?: string; preferences?: Record<string, unknown> };
+        return {
+          user_id: row.user_id as User['user_id'],
+          email: row.email,
+          name: row.name ?? undefined,
+          role: row.role as User['role'],
+          avatar: data.avatar,
+          preferences: data.preferences,
+          created_at: row.created_at,
+          updated_at: row.updated_at ?? undefined,
+        };
+      });
 
       // Create table
       const table = new Table({
@@ -45,7 +66,7 @@ export default class UserList extends Command {
       });
 
       // Add rows
-      for (const user of users) {
+      for (const user of userList) {
         const shortId = user.user_id.substring(0, 8);
         const roleColor =
           user.role === 'owner'
@@ -68,14 +89,8 @@ export default class UserList extends Command {
       this.log('');
       this.log(table.toString());
       this.log('');
-      this.log(chalk.gray(`Total: ${users.length} user${users.length === 1 ? '' : 's'}`));
+      this.log(chalk.gray(`Total: ${userList.length} user${userList.length === 1 ? '' : 's'}`));
 
-      // Clean up socket
-      await new Promise<void>(resolve => {
-        client.io.once('disconnect', () => resolve());
-        client.io.close();
-        setTimeout(() => resolve(), 1000);
-      });
       process.exit(0);
     } catch (error) {
       this.log(chalk.red('✗ Failed to list users'));

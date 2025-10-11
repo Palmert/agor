@@ -379,16 +379,20 @@ function AppContent() {
   ) => {
     if (!client) return;
     try {
+      message.loading({ content: 'Creating worktree...', key: 'create-worktree', duration: 0 });
+
       await client.service(`repos/${repoId}/worktrees`).create({
         name: data.name,
         ref: data.ref,
         createBranch: data.createBranch,
       });
-      message.success('Worktree created successfully!');
+
+      message.success({ content: 'Worktree created successfully!', key: 'create-worktree' });
     } catch (error) {
-      message.error(
-        `Failed to create worktree: ${error instanceof Error ? error.message : String(error)}`
-      );
+      message.error({
+        content: `Failed to create worktree: ${error instanceof Error ? error.message : String(error)}`,
+        key: 'create-worktree',
+      });
     }
   };
 

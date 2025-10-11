@@ -84,7 +84,7 @@ export const ReposTable: React.FC<ReposTableProps> = ({
 
   // Worktree form state
   const [useSameName, setUseSameName] = useState(true);
-  const [strategy, setStrategy] = useState<'create' | 'checkout' | 'commit'>('create');
+  const [strategy, setStrategy] = useState<'create' | 'checkout'>('create');
   const [pullLatest, setPullLatest] = useState(true);
 
   // Auto-extract slug when URL changes in repo form
@@ -111,10 +111,14 @@ export const ReposTable: React.FC<ReposTableProps> = ({
     setUseSameName(true);
     setStrategy('create');
     setPullLatest(true);
+
+    // Default to repo's default branch, fallback to main/master
+    const baseBranch = defaultBranch || 'main';
+
     form.setFieldsValue({
       worktreeName: '',
       branchName: '',
-      sourceBranch: defaultBranch || 'main',
+      sourceBranch: baseBranch,
     });
     setCreateWorktreeModalOpen(true);
   };
@@ -159,15 +163,13 @@ export const ReposTable: React.FC<ReposTableProps> = ({
       let sourceBranch: string | undefined;
 
       if (strategy === 'create') {
+        // Creating a new branch
         ref = branchName;
         createBranch = true;
         sourceBranch = values.sourceBranch;
-      } else if (strategy === 'checkout') {
-        ref = branchName;
-        createBranch = false;
       } else {
-        // commit strategy
-        ref = values.commitRef;
+        // Checking out existing ref (branch, tag, or commit)
+        ref = branchName;
         createBranch = false;
       }
 
@@ -437,46 +439,26 @@ export const ReposTable: React.FC<ReposTableProps> = ({
             name="branchName"
             rules={[{ required: !useSameName, message: 'Please enter a branch name' }]}
           >
-            <Input
-              placeholder="feature-auth"
-              disabled={useSameName}
-              style={{ backgroundColor: useSameName ? '#f5f5f5' : undefined }}
-            />
+            <Input placeholder="feature-auth" disabled={useSameName} />
           </Form.Item>
 
           <Form.Item label="Branch Strategy">
             <Radio.Group value={strategy} onChange={e => setStrategy(e.target.value)}>
               <Space direction="vertical">
-                <Radio value="create">
-                  Create new branch from:{' '}
-                  <Form.Item
-                    name="sourceBranch"
-                    noStyle
-                    rules={[{ required: strategy === 'create' }]}
-                  >
-                    <Select style={{ width: 120, marginLeft: 8 }} disabled={strategy !== 'create'}>
-                      <Select.Option value="main">main</Select.Option>
-                      <Select.Option value="master">master</Select.Option>
-                      <Select.Option value="develop">develop</Select.Option>
-                      <Select.Option value="staging">staging</Select.Option>
-                    </Select>
-                  </Form.Item>
-                </Radio>
-                <Radio value="checkout">Checkout existing branch</Radio>
-                <Radio value="commit">Checkout commit/tag (advanced)</Radio>
+                <Radio value="create">Create new branch</Radio>
+                <Radio value="checkout">Checkout existing branch/tag/commit</Radio>
               </Space>
             </Radio.Group>
           </Form.Item>
 
-          {strategy === 'commit' && (
+          {strategy === 'create' && (
             <Form.Item
-              label="Commit SHA or Tag"
-              name="commitRef"
-              rules={[
-                { required: strategy === 'commit', message: 'Please enter a commit SHA or tag' },
-              ]}
+              label="Base Git Ref"
+              name="sourceBranch"
+              rules={[{ required: true, message: 'Please enter a git ref' }]}
+              extra="Branch, tag, or commit to create from"
             >
-              <Input placeholder="abc123def or v1.0.0" />
+              <Input placeholder="main" />
             </Form.Item>
           )}
 

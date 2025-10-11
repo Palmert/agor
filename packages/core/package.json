@@ -63,6 +63,7 @@
     "@feathersjs/feathers": "^5.0.29",
     "@feathersjs/socketio-client": "^5.0.29",
     "@libsql/client": "^0.14.0",
+    "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.44.6",
     "js-yaml": "^4.1.0",
     "simple-git": "^3.28.0",
@@ -70,6 +71,7 @@
     "uuidv7": "^1.0.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
     "drizzle-kit": "^0.30.1",
