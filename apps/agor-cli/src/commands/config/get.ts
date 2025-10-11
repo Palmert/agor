@@ -2,7 +2,7 @@
  * `agor config get <key>` - Get specific config value
  */
 
-import { type ContextKey, getContext } from '@agor/core/config';
+import { type ContextKey, getConfigValue, getContext } from '@agor/core/config';
 import { Args, Command } from '@oclif/core';
 
 export default class ConfigGet extends Command {
@@ -11,27 +11,35 @@ export default class ConfigGet extends Command {
   static examples = [
     '<%= config.bin %> <%= command.id %> board',
     '<%= config.bin %> <%= command.id %> session',
-    '<%= config.bin %> <%= command.id %> repo',
-    '<%= config.bin %> <%= command.id %> agent',
+    '<%= config.bin %> <%= command.id %> credentials.ANTHROPIC_API_KEY',
+    '<%= config.bin %> <%= command.id %> daemon.port',
   ];
 
   static args = {
     key: Args.string({
-      description: 'Configuration key to retrieve (board, session, repo, agent)',
+      description: 'Configuration key (e.g., board, daemon.port, credentials.ANTHROPIC_API_KEY)',
       required: true,
-      options: ['board', 'session', 'repo', 'agent'],
     }),
   };
 
   async run(): Promise<void> {
     const { args } = await this.parse(ConfigGet);
-    const key = args.key as ContextKey;
+    const key = args.key;
 
     try {
-      const value = await getContext(key);
+      let value: string | boolean | number | undefined;
+
+      // Check if it's a simple context key (board, session, repo, agent)
+      const contextKeys = ['board', 'session', 'repo', 'agent'];
+      if (contextKeys.includes(key)) {
+        value = await getContext(key as ContextKey);
+      } else {
+        // Use getConfigValue for nested keys (e.g., daemon.port, credentials.ANTHROPIC_API_KEY)
+        value = await getConfigValue(key);
+      }
 
       if (value !== undefined) {
-        this.log(value);
+        this.log(String(value));
       } else {
         // No value set - exit with code 1 (useful for scripting)
         process.exit(1);
