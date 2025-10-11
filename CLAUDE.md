@@ -263,6 +263,12 @@ See `apps/agor-cli/src/commands/` for implementations.
 
 See `context/concepts/architecture.md` for git workflows.
 
+**Git Library: simple-git**
+
+- ✅ **Always use simple-git** for all git operations (clone, worktree, branch, fetch, etc.)
+- ❌ **Never use direct subprocess calls** (`execSync`, `spawn`, etc.) for git commands
+- Location: `packages/core/src/git/index.ts` (git utility functions)
+
 **Repository Management:**
 
 - Clone to `~/.agor/repos/<name>`
@@ -282,6 +288,25 @@ git_state: {
   base_sha: string; // Starting commit
   current_sha: string; // Current commit (can be "{sha}-dirty")
 }
+```
+
+**Common Operations:**
+
+```typescript
+import { simpleGit } from 'simple-git';
+
+const git = simpleGit('/path/to/repo');
+
+// Clone
+await git.clone(url, targetPath);
+
+// Worktrees
+await git.raw(['worktree', 'add', path, '-b', branch, source]);
+await git.raw(['worktree', 'list', '--porcelain']);
+
+// Branches
+const branches = await git.branch(['-r']); // Remote branches
+await git.fetch(['origin', 'main']);
 ```
 
 ## Message Storage

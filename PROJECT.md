@@ -16,122 +16,112 @@
 
 ---
 
-## Current Status
+## Current Implementation Status
 
-### ✅ Completed (Phases 1-2)
+### ✅ What's Built
 
-**UI Prototype** (`apps/agor-ui/`)
+**Backend & Data** - Fully operational FeathersJS daemon with real-time capabilities
 
-- Complete React + Ant Design component library with Storybook
-- SessionCard with drag handles and task preview
-- SessionDrawer with ConversationView (Ant Design X Bubble)
-- SessionCanvas with React Flow for tree visualization
-- Board organization and session tree visualization
-- Real messages API integration with WebSocket subscriptions
-- Mock data layer with 18+ realistic sessions
-
-**Backend Infrastructure** (`apps/agor-daemon/`, `packages/core/`)
-
-- FeathersJS REST + WebSocket daemon on :3030
-- Drizzle ORM + LibSQL with hybrid materialization strategy
-- Repository pattern: Sessions, Tasks, Messages, Repos, Boards
+- FeathersJS REST + WebSocket daemon (:3030)
+- Drizzle ORM + LibSQL database
+- Sessions, Tasks, Messages, Repos, Boards services
 - UUIDv7 IDs with short ID resolution
 - Git operations: clone, worktree management
+- Claude Agent SDK integration with live execution
+- Progressive WebSocket message streaming
 
-**CLI** (`apps/agor-cli/`)
+**UI & Frontend** - Complete React component library with live data
+
+- SessionCanvas with React Flow tree visualization
+- SessionCard with drag handles and task preview
+- SessionDrawer with task-centric ConversationView
+- Real-time message streaming and task updates
+- Board organization and session management
+- Complete Ant Design component system
+
+**CLI Tools** - Operational session and repo management
 
 - `agor init` - Database initialization
-- `agor repo add/list/rm` - Repository management
-- `agor repo worktree add/list` - Worktree operations
-- `agor session list` - Table view with filters
-- `agor session load-claude <id>` - Import Claude Code sessions from transcript files
+- `agor session list/load-claude` - Session management
+- `agor repo add/list/worktree` - Repository and worktree operations
 - `agor board list/add-session` - Board organization
+- `agor config` - Configuration management
 
-**Live Agent Execution** (`packages/core/tools/claude/`)
+**Architecture Documentation** - Complete concept documentation in `context/concepts/`
 
-- Claude Agent SDK integration (`@anthropic-ai/claude-agent-sdk`)
-- `ClaudePromptService` - Execute prompts with CLAUDE.md auto-loading
-- `ClaudeTool` - Create user/assistant messages, emit WebSocket events
-- Preset system prompts matching CLI behavior
-- **Session continuity** - Agent SDK `resume` parameter for conversation history
-- Progressive message streaming with real-time WebSocket updates
-- Optional tool execution framework (Read, Write, Bash - disabled for now)
+- Core primitives and data models
+- WebSocket architecture and real-time patterns
+- Conversation UI patterns
+- Agent integration strategy
+- Frontend guidelines and token-based styling
 
-**Data Architecture**
-
-- Messages = immutable event log (append-only)
-- Tasks = mutable state containers (extracted from user messages)
-- Bulk insert endpoints (`/messages/bulk`, `/tasks/bulk`)
-- Message → Task extraction pipeline (batched at 100 items)
-- Real-time 4-phase prompt execution: Create task → Call Claude → Link messages → Mark complete
-
-**See:** [CLAUDE.md](CLAUDE.md) for complete implementation details.
+**See:** [CLAUDE.md](CLAUDE.md) for complete implementation details and development guide.
 
 ---
 
-## What's Next
+## Active TODO List
 
-### ✅ Phase 3: Live Claude Agent Integration (COMPLETE)
+### High Priority
 
-**What Works Now:**
+- [ ] **Session forking** - Fork sessions at decision points
+  - Wire fork button in UI to daemon API
+  - Create new session with genealogy relationship
+  - Display genealogy tree on canvas (React Flow edges)
+  - Add fork metadata (decision point, timestamp)
 
-- ✅ Claude Agent SDK integration with CLAUDE.md auto-loading
-- ✅ Progressive WebSocket message streaming (real-time UI updates)
-- ✅ Agent SDK session continuity (`resume` parameter for conversation history)
-- ✅ Task-centric conversation view with running/completed states
+- [ ] **Save session positions on board** - Persist canvas layout
+  - Store x/y coordinates in database
+  - Update on drag end
+  - Restore positions on board load
 
-**Next Steps**
+- [ ] **Session state transitions** - Idle → Running → Completed lifecycle
+  - Implement state machine in daemon
+  - UI indicators for each state
+  - Auto-transition based on activity
 
-- [ ] **Session fork implementation** - Wire up fork button to actually fork sessions
-  - Use Agent SDK to fork conversation at current state
-  - Create new Agor session record with forked SDK session ID
-  - Capture fork relationship in genealogy data model (`parent_id`, `fork_point`)
-  - Display genealogy tree on Board (React Flow edges between parent/child cards)
-  - Add fork metadata (decision point description, timestamp)
-- [ ] Add token usage tracking from Agent SDK metadata
-- [ ] Enable optional tools (`allowedTools: ['Read', 'Grep']`) with UX design
+### Medium Priority
 
-**Session Management**
+- [ ] **Genealogy tree visualization** - Show session relationships
+  - React Flow edges between parent/child sessions
+  - Distinguish fork (dashed) vs spawn (solid) relationships
+  - Interactive tree exploration
 
-- [ ] `agor session show <id>` - Detailed view with genealogy tree
-- [ ] `agor session create` - Interactive session wizard
-- [ ] Session state transitions (idle → running → completed)
-- [ ] Fork at decision points, spawn for subtasks
+- [ ] **Token usage tracking** - Track costs from Agent SDK
+  - Capture token metadata from Claude responses
+  - Display in UI (session card, conversation view)
+  - Aggregate costs across sessions
 
-**Advanced Features**
+- [ ] **CLI session commands**
+  - `agor session show <id>` - Detailed session view with genealogy
+  - `agor session create` - Interactive session wizard
+  - `agor session fork/spawn` - Create child sessions
 
-- [ ] Concept management (modular context composition)
-- [ ] Report generation from completed tasks
-- [ ] Multi-agent abstraction (when adding agent #2)
-- [ ] Daemon auto-start and process management
+### Future Features
 
-### 🚧 Phase 4: UI Integration & Desktop App
+- [ ] **Concept management** - Modular context composition
+  - Define, attach, and detach concepts from sessions
+  - Concept library UI
+  - Auto-suggest relevant concepts
 
-**Connect UI to Backend**
+- [ ] **Report generation** - Auto-generate summaries from completed tasks
+  - LLM-powered task summaries
+  - Session-level reports
+  - Export capabilities
 
-- [x] Messages API integration with real-time WebSocket
-- [x] ConversationView component with task-centric organization
-- [x] SessionDrawer with live message loading
-- [x] Progressive message rendering with streaming WebSocket updates
-- [x] Task status updates (running → completed) with UI feedback
-- [x] ToolUseRenderer for displaying tool calls inline
-- [x] MarkdownRenderer with proper Ant Design Typography styling
-- [x] Replace remaining mock data with daemon API calls (sessions, boards, repos, tasks)
-- [x] Session creation flow integrated with daemon
-- [x] Prompt input component with submit to daemon
-- [ ] Task timeline visualization from messages table
-- [ ] Genealogy tree rendering from database
+- [ ] **Optional tool execution** - Enable Claude tools with UX design
+  - Tool allowlist configuration
+  - Permission/approval flow
+  - Tool execution feedback in UI
 
-**Desktop Packaging**
+- [ ] **Desktop packaging** - Electron/Tauri wrapper
+  - Bundled daemon (auto-start)
+  - System tray integration
+  - Native file system access
 
-- [ ] Electron/Tauri wrapper
-- [ ] Bundled daemon (auto-start on app launch)
-- [ ] System tray integration
-- [ ] Local file system access for worktrees
-
-# TODO:
-
-- save session positions on board
+- [ ] **Multi-agent abstraction** - Support for Cursor, Codex, Gemini
+  - Agent adapter interface
+  - Agent-specific message formats
+  - Unified conversation view
 
 ---
 
@@ -155,8 +145,6 @@
 - Desktop app (Electron or Tauri)
 - Standalone CLI binary (`agor`)
 - Documentation + tutorials
-
----
 
 ### V2: Agor Cloud (Target: Q4 2025)
 
