@@ -49,7 +49,10 @@ export const ZoneConfigModal = ({
 
   const handleSave = () => {
     if (zoneData.type === 'zone') {
-      const hasChanges = name !== zoneName || triggerText.trim() !== (zoneData.trigger?.text || '');
+      const hasChanges =
+        name !== zoneName ||
+        triggerText.trim() !== (zoneData.trigger?.text || '') ||
+        triggerType !== (zoneData.trigger?.type || 'prompt');
 
       if (hasChanges) {
         onUpdate(objectId, {
