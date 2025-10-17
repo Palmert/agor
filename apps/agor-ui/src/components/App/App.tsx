@@ -8,7 +8,7 @@ import type {
   User,
 } from '@agor/core/types';
 import { Layout } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePresence } from '../../hooks/usePresence';
 import type { Agent, Board, Session, Task } from '../../types';
 import { AppHeader } from '../AppHeader';
@@ -201,7 +201,7 @@ export const App: React.FC<AppProps> = ({
   const sessionSettingsSession = sessionSettingsId
     ? sessions.find(s => s.session_id === sessionSettingsId)
     : null;
-  const selectedSessionTasks = selectedSessionId ? tasks[selectedSessionId] || [] : [];
+  const _selectedSessionTasks = selectedSessionId ? tasks[selectedSessionId] || [] : [];
   const currentBoard = boards.find(b => b.board_id === currentBoardId);
 
   // Filter sessions by current board

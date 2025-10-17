@@ -122,13 +122,6 @@ async function main() {
           // Handle cursor movement events
           socket.on('cursor-move', (data: import('@agor/core/types').CursorMoveEvent) => {
             const userId = getUserId();
-            console.log('📥 Daemon received cursor-move:', {
-              socketId: socket.id,
-              userId,
-              boardId: data.boardId,
-              x: data.x,
-              y: data.y,
-            });
 
             // Broadcast cursor position to all users on the same board except sender
             const broadcastData = {
@@ -139,18 +132,12 @@ async function main() {
               timestamp: data.timestamp,
             } as import('@agor/core/types').CursorMovedEvent;
 
-            console.log('📤 Daemon broadcasting cursor-moved:', broadcastData);
             socket.broadcast.emit('cursor-moved', broadcastData);
           });
 
           // Handle cursor leave events (user navigates away from board)
           socket.on('cursor-leave', (data: import('@agor/core/types').CursorLeaveEvent) => {
             const userId = getUserId();
-            console.log('📥 Daemon received cursor-leave:', {
-              socketId: socket.id,
-              userId,
-              boardId: data.boardId,
-            });
 
             socket.broadcast.emit('cursor-left', {
               userId,
@@ -313,27 +300,41 @@ async function main() {
           // biome-ignore lint/suspicious/noExplicitAny: Data type depends on action
           const { _action, objectId, objectData, objects } = (context.data || {}) as any;
 
-          if (_action === 'upsertObject' && objectId && objectData) {
+          if (_action === 'upsertObject') {
+            if (!objectId || !objectData) {
+              console.error('❌ upsertObject called without objectId or objectData!', {
+                objectId,
+                hasObjectData: !!objectData,
+              });
+              // Return early to prevent normal patch flow
+              throw new Error('upsertObject requires objectId and objectData');
+            }
             const result = await boardsService.upsertBoardObject(context.id, objectId, objectData);
             context.result = result;
-            // Manually emit 'patched' event for WebSocket broadcasting
+            // Manually emit 'patched' event for WebSocket broadcasting (ONCE)
             app.service('boards').emit('patched', result);
+            // Skip normal patch flow to prevent double emit
+            context.dispatch = result;
             return context;
           }
 
           if (_action === 'removeObject' && objectId) {
             const result = await boardsService.removeBoardObject(context.id, objectId);
             context.result = result;
-            // Manually emit 'patched' event for WebSocket broadcasting
+            // Manually emit 'patched' event for WebSocket broadcasting (ONCE)
             app.service('boards').emit('patched', result);
+            // Skip normal patch flow to prevent double emit
+            context.dispatch = result;
             return context;
           }
 
           if (_action === 'batchUpsertObjects' && objects) {
             const result = await boardsService.batchUpsertBoardObjects(context.id, objects);
             context.result = result;
-            // Manually emit 'patched' event for WebSocket broadcasting
+            // Manually emit 'patched' event for WebSocket broadcasting (ONCE)
             app.service('boards').emit('patched', result);
+            // Skip normal patch flow to prevent double emit
+            context.dispatch = result;
             return context;
           }
 
@@ -392,11 +393,7 @@ async function main() {
       create: [
         async context => {
           // Only add refresh token for non-anonymous authentication
-          if (
-            context.result &&
-            context.result.user &&
-            context.result.user.user_id !== 'anonymous'
-          ) {
+          if (context.result?.user && context.result.user.user_id !== 'anonymous') {
             // Generate refresh token (30 days)
             const refreshToken = jwt.sign(
               {
@@ -462,7 +459,7 @@ async function main() {
             role: user.role,
           },
         };
-      } catch (error) {
+      } catch (_error) {
         throw new Error('Invalid or expired refresh token');
       }
     },
@@ -473,7 +470,7 @@ async function main() {
   const sessionsRepo = new SessionRepository(db);
   const sessionMCPRepo = new SessionMCPServerRepository(db);
   const mcpServerRepo = new MCPServerRepository(db);
-  const tasksRepo = new TaskRepository(db);
+  const _tasksRepo = new TaskRepository(db);
 
   // Initialize PermissionService for UI-based permission prompts
   // Emits WebSocket events via sessions service for permission requests
@@ -717,7 +714,7 @@ async function main() {
                     start_timestamp: startTimestamp,
                     end_timestamp: endTimestamp,
                   },
-                  tool_use_count: result.assistantMessageIds.reduce((count, _id, index) => {
+                  tool_use_count: result.assistantMessageIds.reduce((count, _id, _index) => {
                     // First assistant message likely has tools
                     return count; // TODO: Count actual tools from messages
                   }, 0),

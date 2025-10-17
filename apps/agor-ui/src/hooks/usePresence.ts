@@ -10,7 +10,7 @@
 
 import type { AgorClient } from '@agor/core/api';
 import type { ActiveUser, BoardID, CursorMovedEvent, User } from '@agor/core/types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PRESENCE_CONFIG } from '../config/presence';
 
 interface UsePresenceOptions {
@@ -33,6 +33,10 @@ interface UsePresenceResult {
  */
 export function usePresence(options: UsePresenceOptions): UsePresenceResult {
   const { client, boardId, users, enabled = true } = options;
+
+  // Use ref for users to avoid triggering useMemo recalculation
+  const usersRef = useRef(users);
+  usersRef.current = users;
 
   // Separate maps for different timeouts:
   // - cursorMap: for rendering cursors (5 second timeout)
@@ -116,18 +120,32 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
     // Cleanup stale cursors every 5 seconds (for cursor rendering)
     const cursorCleanupInterval = setInterval(() => {
       const now = Date.now();
+
+      // Check if there are any stale cursors BEFORE calling setCursorMap
       setCursorMap(prev => {
-        const next = new Map(prev);
         let hasChanges = false;
 
-        for (const [userId, cursor] of next.entries()) {
+        // First pass: check if any cursors are stale
+        for (const [_userId, cursor] of prev.entries()) {
           if (now - cursor.timestamp > PRESENCE_CONFIG.CURSOR_HIDE_AFTER_MS) {
-            next.delete(userId);
             hasChanges = true;
+            break;
           }
         }
 
-        return hasChanges ? next : prev;
+        if (!hasChanges) {
+          return prev; // Return same reference to prevent state update
+        }
+
+        // Second pass: create new map with stale cursors removed
+        const next = new Map(prev);
+        for (const [userId, cursor] of prev.entries()) {
+          if (now - cursor.timestamp > PRESENCE_CONFIG.CURSOR_HIDE_AFTER_MS) {
+            next.delete(userId);
+          }
+        }
+
+        return next;
       });
     }, 5000);
 
@@ -171,7 +189,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
 
     // Build active users from presenceMap (longer timeout for facepile)
     for (const [userId, presence] of presenceMap.entries()) {
-      const user = users.find(u => u.user_id === userId);
+      const user = usersRef.current.find(u => u.user_id === userId);
       if (!user) continue;
 
       activeUsers.push({
@@ -186,7 +204,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
 
     // Build remote cursors from cursorMap (shorter timeout for cursor rendering)
     for (const [userId, cursor] of cursorMap.entries()) {
-      const user = users.find(u => u.user_id === userId);
+      const user = usersRef.current.find(u => u.user_id === userId);
       if (!user) continue;
 
       remoteCursors.set(userId, {
@@ -201,7 +219,7 @@ export function usePresence(options: UsePresenceOptions): UsePresenceResult {
       activeUsers,
       remoteCursors,
     };
-  }, [presenceMap, cursorMap, users]);
+  }, [presenceMap, cursorMap]);
 
   return {
     activeUsers,

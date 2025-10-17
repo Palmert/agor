@@ -4,8 +4,8 @@
 
 import { SettingOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
-import { useState } from 'react';
-import { NodeResizer, NodeToolbar } from 'reactflow';
+import React, { useEffect, useRef, useState } from 'react';
+import { NodeResizer, useViewport } from 'reactflow';
 import type { BoardObject } from '../../types';
 import { ZoneConfigModal } from './ZoneConfigModal';
 
@@ -38,12 +38,42 @@ interface ZoneNodeData {
   onUpdate?: (objectId: string, objectData: BoardObject) => void;
 }
 
-export const ZoneNode = ({ data, selected }: { data: ZoneNodeData; selected?: boolean }) => {
+const ZoneNodeComponent = ({ data, selected }: { data: ZoneNodeData; selected?: boolean }) => {
   const { token } = theme.useToken();
+  const { zoom } = useViewport();
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [label, setLabel] = useState(data.label);
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [toolbarVisible, setToolbarVisible] = useState(false);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const colors = getColorPalette(token);
+
+  // Inverse scale to keep toolbar at constant size regardless of zoom
+  const scale = 1 / zoom;
+
+  // Sync label state when data.label changes (from WebSocket or modal updates)
+  useEffect(() => {
+    setLabel(data.label);
+  }, [data.label]);
+
+  // Sync toolbar visibility with selected state
+  useEffect(() => {
+    if (selected) {
+      setToolbarVisible(true);
+    } else {
+      // Delay hiding to prevent flicker during re-renders
+      const timer = setTimeout(() => setToolbarVisible(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selected]);
+
+  // Auto-focus input when entering edit mode
+  useEffect(() => {
+    if (isEditingLabel && labelInputRef.current) {
+      labelInputRef.current.focus();
+      labelInputRef.current.select();
+    }
+  }, [isEditingLabel]);
 
   // Helper to create full object data with current values
   const createObjectData = (
@@ -87,65 +117,6 @@ export const ZoneNode = ({ data, selected }: { data: ZoneNodeData; selected?: bo
 
   return (
     <>
-      <NodeToolbar isVisible={selected} position="top">
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            padding: '8px',
-            background: token.colorBgElevated,
-            border: `1px solid ${token.colorBorder}`,
-            borderRadius: token.borderRadius,
-            boxShadow: token.boxShadowSecondary,
-          }}
-        >
-          {/* Color picker */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {colors.map(color => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => handleColorChange(color)}
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '4px',
-                  backgroundColor: color,
-                  border:
-                    data.color === color
-                      ? `2px solid ${token.colorPrimary}`
-                      : `1px solid ${token.colorBorder}`,
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-                title={`Change color to ${color}`}
-              />
-            ))}
-          </div>
-          {/* Settings button */}
-          <div style={{ borderLeft: `1px solid ${token.colorBorder}`, paddingLeft: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setConfigModalOpen(true)}
-              style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '4px',
-                backgroundColor: token.colorBgContainer,
-                border: `1px solid ${token.colorBorder}`,
-                cursor: 'pointer',
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Configure zone triggers"
-            >
-              <SettingOutlined style={{ fontSize: '14px', color: token.colorText }} />
-            </button>
-          </div>
-        </div>
-      </NodeToolbar>
       <NodeResizer
         isVisible={selected}
         minWidth={200}
@@ -173,17 +144,128 @@ export const ZoneNode = ({ data, selected }: { data: ZoneNodeData; selected?: bo
           pointerEvents: 'none', // Let sessions behind zone be clickable
           zIndex: -1, // Zones always behind sessions
           backdropFilter: 'blur(4px)',
+          position: 'relative',
         }}
       >
+        {/* Toolbar - ALWAYS rendered, visibility controlled by CSS only */}
+        <div
+          className="nodrag nopan"
+          onPointerDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onPointerUp={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          style={{
+            position: 'absolute',
+            top: '-44px',
+            left: '50%',
+            transform: `translateX(-50%) scale(${scale})`,
+            transformOrigin: 'center bottom',
+            display: 'flex',
+            gap: '8px',
+            padding: '6px',
+            background: token.colorBgElevated,
+            border: `1px solid ${token.colorBorder}`,
+            borderRadius: token.borderRadius,
+            boxShadow: token.boxShadowSecondary,
+            zIndex: 1000,
+            userSelect: 'none',
+            // CSS-only visibility control (no DOM changes)
+            opacity: toolbarVisible ? 1 : 0,
+            pointerEvents: toolbarVisible ? 'auto' : 'none',
+            transition: 'opacity 0.15s ease',
+          }}
+        >
+          {colors.map(color => (
+            <button
+              key={color}
+              type="button"
+              onPointerDown={e => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onPointerUp={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleColorChange(color);
+              }}
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              style={{
+                width: '20px',
+                height: '20px',
+                borderRadius: '3px',
+                backgroundColor: color,
+                border:
+                  data.color === color
+                    ? `2px solid ${token.colorPrimary}`
+                    : `1px solid ${token.colorBorder}`,
+                userSelect: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+              title={`Change color to ${color}`}
+            />
+          ))}
+          <div
+            style={{
+              width: '1px',
+              height: '20px',
+              backgroundColor: token.colorBorder,
+              margin: '0 2px',
+            }}
+          />
+          <button
+            type="button"
+            onPointerDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerUp={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              setConfigModalOpen(true);
+            }}
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '3px',
+              backgroundColor: token.colorBgContainer,
+              border: `1px solid ${token.colorBorder}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              userSelect: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            title="Configure zone"
+          >
+            <SettingOutlined style={{ fontSize: '12px', color: token.colorText }} />
+          </button>
+        </div>
         <div
           style={{
             pointerEvents: 'auto',
-            cursor: isEditingLabel ? 'text' : 'move',
           }}
           onDoubleClick={() => setIsEditingLabel(true)}
         >
           {isEditingLabel ? (
             <input
+              ref={labelInputRef}
               type="text"
               value={label}
               onChange={e => setLabel(e.target.value)}
@@ -199,6 +281,7 @@ export const ZoneNode = ({ data, selected }: { data: ZoneNodeData; selected?: bo
                 background: 'transparent',
                 color: borderColor,
                 padding: 0,
+                width: '100%',
               }}
             />
           ) : (
@@ -233,7 +316,13 @@ export const ZoneNode = ({ data, selected }: { data: ZoneNodeData; selected?: bo
         open={configModalOpen}
         onCancel={() => setConfigModalOpen(false)}
         zoneName={data.label}
+        objectId={data.objectId}
+        onUpdate={data.onUpdate || (() => {})}
+        zoneData={createObjectData({})}
       />
     </>
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export const ZoneNode = React.memo(ZoneNodeComponent);

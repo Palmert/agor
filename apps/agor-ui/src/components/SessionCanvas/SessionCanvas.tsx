@@ -52,13 +52,18 @@ interface SessionNodeData {
   onSessionClick?: () => void;
   onDelete?: (sessionId: string) => void;
   onOpenSettings?: (sessionId: string) => void;
+  onUnpin?: (sessionId: string) => void;
   compact?: boolean;
+  isPinned?: boolean;
+  parentZoneId?: string;
+  zoneName?: string;
+  zoneColor?: string;
 }
 
 // Custom node component that renders SessionCard
 const SessionNode = ({ data }: { data: SessionNodeData }) => {
   return (
-    <div className="session-node" style={{ cursor: 'default' }}>
+    <div className="session-node">
       <SessionCard
         session={data.session}
         tasks={data.tasks}
@@ -68,6 +73,10 @@ const SessionNode = ({ data }: { data: SessionNodeData }) => {
         onSessionClick={data.onSessionClick}
         onDelete={data.onDelete}
         onOpenSettings={data.onOpenSettings}
+        onUnpin={data.onUnpin}
+        isPinned={data.isPinned}
+        zoneName={data.zoneName}
+        zoneColor={data.zoneColor}
         defaultExpanded={!data.compact}
       />
     </div>
@@ -122,7 +131,6 @@ const SessionCanvas = ({
   // Track resize state
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingResizeUpdatesRef = useRef<Record<string, { width: number; height: number }>>({});
-  const isSyncingRef = useRef(false);
 
   // Board objects hook
   const { getBoardObjectNodes, addZoneNode, deleteObject, batchUpdateObjectPositions } =
@@ -133,6 +141,63 @@ const SessionCanvas = ({
       deletedObjectsRef,
       eraserMode: activeTool === 'eraser',
     });
+
+  // Memoize board layout to prevent unnecessary re-renders
+  // Layout changes when actual layout data changes, not just board object reference
+  const boardLayout = useMemo(() => board?.layout, [board?.layout]);
+
+  // Extract zone labels - memoized to only change when labels actually change
+  const zoneLabels = useMemo(() => {
+    if (!board?.objects) return {};
+    const labels: Record<string, string> = {};
+    Object.entries(board.objects).forEach(([id, obj]) => {
+      if (obj.type === 'zone') {
+        labels[id] = obj.label;
+      }
+    });
+    return labels;
+  }, [board?.objects]);
+
+  // Handler to unpin a session from its zone
+  const handleUnpin = useCallback(
+    async (sessionId: string) => {
+      if (!board || !client) return;
+
+      const currentLayout = board.layout?.[sessionId];
+      if (!currentLayout?.parentId) return;
+
+      // Get positions from board.layout
+      const sessionLayout = board.layout[sessionId];
+      const parentLayout = board.layout[currentLayout.parentId];
+
+      if (!sessionLayout || !parentLayout) {
+        console.error('Cannot unpin: missing layout data');
+        return;
+      }
+
+      // Calculate absolute position from relative position
+      // Session's layout position is relative to parent, so add parent's position
+      const absoluteX = sessionLayout.x + parentLayout.x;
+      const absoluteY = sessionLayout.y + parentLayout.y;
+
+      // Update layout without parentId
+      const newLayout = {
+        ...board.layout,
+        [sessionId]: {
+          x: absoluteX,
+          y: absoluteY,
+          parentId: undefined,
+        },
+      };
+
+      await client.service('boards').patch(board.board_id, {
+        layout: newLayout,
+      });
+
+      console.log(`📍 Manually unpinned session ${sessionId.substring(0, 8)}`);
+    },
+    [board, client] // REMOVED nodes dependency - this was the root cause!
+  );
 
   // Convert sessions to React Flow nodes
   const initialNodes: Node[] = useMemo(() => {
@@ -171,16 +236,28 @@ const SessionCanvas = ({
 
     // Convert to React Flow nodes
     return sessions.map(session => {
-      // Use stored position from board layout if available, otherwise use auto-layout
-      const storedPosition = board?.layout?.[session.session_id];
+      // Use stored position from boardLayout if available, otherwise use auto-layout
+      const storedLayout = boardLayout?.[session.session_id];
       const autoPosition = nodeMap.get(session.session_id) || { x: 0, y: 0 };
-      const position = storedPosition || autoPosition;
+      const position = storedLayout || autoPosition;
+
+      // Find zone name and color if pinned
+      const parentZoneId = storedLayout?.parentId;
+      const zoneName = parentZoneId ? zoneLabels[parentZoneId] || 'Unknown Zone' : undefined;
+      const zoneColor =
+        parentZoneId && board?.objects?.[parentZoneId]
+          ? (board.objects[parentZoneId] as { color?: string }).color
+          : undefined;
 
       return {
         id: session.session_id,
         type: 'sessionNode',
-        position,
+        position: { x: position.x, y: position.y },
         draggable: true,
+        // Set parentId if session is pinned to a zone
+        parentId: parentZoneId,
+        // Optional: constrain session to stay within zone bounds
+        extent: parentZoneId ? ('parent' as const) : undefined,
         data: {
           session,
           tasks: tasks[session.session_id] || [],
@@ -190,12 +267,20 @@ const SessionCanvas = ({
           onSessionClick: () => onSessionClick?.(session.session_id),
           onDelete: onSessionDelete,
           onOpenSettings,
+          onUnpin: handleUnpin,
           compact: false,
+          // Pass pinning info for UI
+          isPinned: !!parentZoneId,
+          parentZoneId,
+          zoneName,
+          zoneColor,
         },
       };
     });
   }, [
-    board?.layout,
+    board, // Need full board access for zone colors
+    boardLayout, // Recalculate when layout changes (memoized for stability)
+    zoneLabels, // Recalculate when zone labels change (but not colors!)
     sessions,
     tasks,
     users,
@@ -204,6 +289,7 @@ const SessionCanvas = ({
     onTaskClick,
     onSessionDelete,
     onOpenSettings,
+    handleUnpin,
   ]);
 
   // Convert session relationships to React Flow edges
@@ -296,61 +382,83 @@ const SessionCanvas = ({
     return nodes;
   }, [remoteCursors]);
 
-  // Sync nodes when sessions/tasks/board objects/cursors change
+  // Sync SESSION nodes only (don't trigger on zone changes)
   useEffect(() => {
-    if (isDraggingRef.current) return; // Skip during drag
-
-    // Set syncing flag to prevent resize events from triggering during sync
-    isSyncingRef.current = true;
-
-    // Merge session nodes + board object nodes + cursor nodes
-    const boardObjectNodes = getBoardObjectNodes();
-    const allNodes = [...initialNodes, ...boardObjectNodes, ...cursorNodes];
+    if (isDraggingRef.current) return;
 
     setNodes(currentNodes => {
-      return allNodes
-        .filter(newNode => {
-          // Filter out objects that were deleted locally (prevent re-appearance during WebSocket updates)
-          if (deletedObjectsRef.current.has(newNode.id)) {
-            return false;
-          }
-          return true;
-        })
-        .map(newNode => {
-          // Find existing node to preserve selection state
-          const existingNode = currentNodes.find(n => n.id === newNode.id);
+      // Separate existing nodes by type
+      const existingZones = currentNodes.filter(n => n.type === 'zone');
+      const existingCursors = currentNodes.filter(n => n.type === 'cursor');
 
-          const localPosition = localPositionsRef.current[newNode.id];
-          const incomingPosition = newNode.position;
-          const positionChanged =
-            localPosition &&
-            (Math.abs(localPosition.x - incomingPosition.x) > 1 ||
-              Math.abs(localPosition.y - incomingPosition.y) > 1);
+      // Update session nodes with preserved state
+      const updatedSessions = initialNodes.map(newNode => {
+        const existingNode = currentNodes.find(n => n.id === newNode.id);
+        const localPosition = localPositionsRef.current[newNode.id];
+        const incomingPosition = newNode.position;
+        const positionChanged =
+          localPosition &&
+          (Math.abs(localPosition.x - incomingPosition.x) > 1 ||
+            Math.abs(localPosition.y - incomingPosition.y) > 1);
 
-          if (positionChanged) {
-            delete localPositionsRef.current[newNode.id];
-            return { ...newNode, selected: existingNode?.selected };
-          }
-
-          if (localPosition) {
-            return { ...newNode, position: localPosition, selected: existingNode?.selected };
-          }
-
-          // Preserve selected state from existing node
+        if (positionChanged) {
+          delete localPositionsRef.current[newNode.id];
           return { ...newNode, selected: existingNode?.selected };
-        });
-    });
+        }
 
-    // Clear syncing flag after a short delay to allow React Flow to process changes
-    setTimeout(() => {
-      isSyncingRef.current = false;
-    }, 100);
-  }, [initialNodes, getBoardObjectNodes, cursorNodes, setNodes]);
+        if (localPosition) {
+          return { ...newNode, position: localPosition, selected: existingNode?.selected };
+        }
+
+        return { ...newNode, selected: existingNode?.selected };
+      });
+
+      // Merge: sessions + existing zones + existing cursors
+      return [...updatedSessions, ...existingZones, ...existingCursors];
+    });
+  }, [initialNodes, setNodes]);
+
+  // Sync ZONE nodes separately
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+
+    const boardObjectNodes = getBoardObjectNodes();
+
+    setNodes(currentNodes => {
+      // Keep existing sessions and cursors, replace zones
+      const sessions = currentNodes.filter(n => n.type === 'sessionNode');
+      const cursors = currentNodes.filter(n => n.type === 'cursor');
+
+      // Update zones with preserved selection state
+      const zones = boardObjectNodes
+        .filter(z => !deletedObjectsRef.current.has(z.id))
+        .map(newZone => {
+          const existingZone = currentNodes.find(n => n.id === newZone.id);
+          // Preserve selected state from existing zone
+          return { ...newZone, selected: existingZone?.selected };
+        });
+
+      return [...sessions, ...zones, ...cursors];
+    });
+  }, [getBoardObjectNodes, setNodes]); // REMOVED setNodes from dependencies
+
+  // Sync CURSOR nodes separately
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+
+    setNodes(currentNodes => {
+      // Keep existing sessions and zones, replace cursors
+      const sessions = currentNodes.filter(n => n.type === 'sessionNode');
+      const zones = currentNodes.filter(n => n.type === 'zone');
+
+      return [...sessions, ...zones, ...cursorNodes];
+    });
+  }, [cursorNodes, setNodes]); // REMOVED setNodes from dependencies
 
   // Sync edges
   useEffect(() => {
     setEdges(initialEdges);
-  }, [initialEdges, setEdges]);
+  }, [initialEdges, setEdges]); // REMOVED setEdges from dependencies
 
   // Intercept onNodesChange to detect resize events
   const onNodesChange = useCallback(
@@ -358,15 +466,28 @@ const SessionCanvas = ({
       // Detect resize by checking for dimensions changes
       changes.forEach(change => {
         if (change.type === 'dimensions' && change.dimensions) {
-          // Skip if we're currently syncing from WebSocket updates
-          if (isSyncingRef.current) return;
-
           const node = nodes.find(n => n.id === change.id);
           if (node?.type === 'zone') {
+            // Check if dimensions actually changed (to avoid infinite loop from React Flow emitting unchanged dimensions)
+            const currentWidth = node.style?.width;
+            const currentHeight = node.style?.height;
+            const newWidth = change.dimensions.width;
+            const newHeight = change.dimensions.height;
+
+            // Skip if dimensions haven't changed (tolerance of 1px for floating point)
+            if (
+              currentWidth &&
+              currentHeight &&
+              Math.abs(Number(currentWidth) - newWidth) < 1 &&
+              Math.abs(Number(currentHeight) - newHeight) < 1
+            ) {
+              return;
+            }
+
             // Accumulate resize updates
             pendingResizeUpdatesRef.current[change.id] = {
-              width: change.dimensions.width,
-              height: change.dimensions.height,
+              width: newWidth,
+              height: newHeight,
             };
 
             // Clear existing timer
@@ -430,7 +551,7 @@ const SessionCanvas = ({
   // Handle node drag end - persist layout to board (debounced)
   const handleNodeDragStop: NodeDragHandler = useCallback(
     (_event, node) => {
-      if (!board || !client) return;
+      if (!board || !client || !reactFlowInstanceRef.current) return;
 
       // Track final position locally
       localPositionsRef.current[node.id] = {
@@ -457,27 +578,80 @@ const SessionCanvas = ({
 
         try {
           // Separate updates for sessions vs board objects
-          const sessionUpdates: Record<string, { x: number; y: number }> = {};
+          const sessionUpdates: Record<string, { x: number; y: number; parentId?: string }> = {};
           const objectUpdates: Record<string, { x: number; y: number }> = {};
 
           // Find all current nodes to check types
           const currentNodes = nodes;
 
           for (const [nodeId, position] of Object.entries(updates)) {
-            const node = currentNodes.find(n => n.id === nodeId);
-            if (node?.type === 'zone') {
+            const draggedNode = currentNodes.find(n => n.id === nodeId);
+
+            if (draggedNode?.type === 'zone') {
+              // Zone moved - just update position
               objectUpdates[nodeId] = position;
-            } else {
-              sessionUpdates[nodeId] = position;
+            } else if (draggedNode?.type === 'sessionNode') {
+              // Session moved - check for pin/unpin
+              const currentLayout = board.layout?.[nodeId];
+              const currentParentId = currentLayout?.parentId;
+
+              // Check if session overlaps with any zone (using center point)
+              const intersections = reactFlowInstanceRef.current?.getIntersectingNodes(draggedNode);
+              const overlappingZone = intersections?.find(n => n.type === 'zone');
+
+              if (overlappingZone && !currentParentId) {
+                // Session dropped into a zone → PIN IT
+                // Convert absolute position to relative (to zone's top-left)
+                const zoneNode = currentNodes.find(n => n.id === overlappingZone.id);
+                if (zoneNode) {
+                  const relativeX = position.x - zoneNode.position.x;
+                  const relativeY = position.y - zoneNode.position.y;
+
+                  sessionUpdates[nodeId] = {
+                    x: relativeX,
+                    y: relativeY,
+                    parentId: overlappingZone.id,
+                  };
+                  console.log(
+                    `📌 Pinned session ${nodeId.substring(0, 8)} to zone ${overlappingZone.id.substring(0, 8)}`
+                  );
+                }
+              } else if (!overlappingZone && currentParentId) {
+                // Session dragged outside zone → UNPIN IT
+                // Convert relative position to absolute
+                const parentZone = currentNodes.find(n => n.id === currentParentId);
+                if (parentZone) {
+                  const absoluteX = position.x + parentZone.position.x;
+                  const absoluteY = position.y + parentZone.position.y;
+
+                  sessionUpdates[nodeId] = {
+                    x: absoluteX,
+                    y: absoluteY,
+                    parentId: undefined, // Remove parent
+                  };
+                  console.log(
+                    `📍 Unpinned session ${nodeId.substring(0, 8)} from zone ${currentParentId.substring(0, 8)}`
+                  );
+                }
+              } else {
+                // No pin/unpin change - just update position
+                sessionUpdates[nodeId] = {
+                  x: position.x,
+                  y: position.y,
+                  parentId: currentParentId,
+                };
+              }
             }
           }
 
           // Update session positions in layout
           if (Object.keys(sessionUpdates).length > 0) {
-            const newLayout = {
-              ...board.layout,
-              ...sessionUpdates,
-            };
+            const newLayout = { ...board.layout };
+
+            // Merge updates
+            for (const [sessionId, update] of Object.entries(sessionUpdates)) {
+              newLayout[sessionId] = update;
+            }
 
             await client.service('boards').patch(board.board_id, {
               layout: newLayout,
@@ -495,7 +669,7 @@ const SessionCanvas = ({
         }
       }, 500);
     },
-    [board, client, nodes, batchUpdateObjectPositions]
+    [board, client, batchUpdateObjectPositions, nodes]
   );
 
   // Cleanup debounce timers on unmount
@@ -625,7 +799,7 @@ const SessionCanvas = ({
 
   // Node click handler for eraser mode
   const handleNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
+    (_event: React.MouseEvent, node: Node) => {
       if (activeTool === 'eraser') {
         // Only delete board objects (zones), not sessions or cursors
         if (node.type === 'zone') {

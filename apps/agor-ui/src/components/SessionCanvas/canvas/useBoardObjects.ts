@@ -3,7 +3,7 @@
  */
 
 import type { AgorClient } from '@agor/core/api';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Node } from 'reactflow';
 import type { Board, BoardObject } from '../../../types';
 
@@ -22,15 +22,20 @@ export const useBoardObjects = ({
   deletedObjectsRef,
   eraserMode = false,
 }: UseBoardObjectsProps) => {
+  // Use ref to avoid recreating callbacks when board changes
+  const boardRef = useRef(board);
+  boardRef.current = board;
+
   /**
    * Update an existing board object
    */
   const handleUpdateObject = useCallback(
     async (objectId: string, objectData: BoardObject) => {
-      if (!board || !client) return;
+      const currentBoard = boardRef.current;
+      if (!currentBoard || !client) return;
 
       try {
-        await client.service('boards').patch(board.board_id, {
+        await client.service('boards').patch(currentBoard.board_id, {
           _action: 'upsertObject',
           objectId,
           objectData,
@@ -39,7 +44,7 @@ export const useBoardObjects = ({
         console.error('Failed to update object:', error);
       }
     },
-    [board, client]
+    [client] // Only depend on client, not board
   );
 
   /**
@@ -81,7 +86,8 @@ export const useBoardObjects = ({
    */
   const addZoneNode = useCallback(
     async (x: number, y: number) => {
-      if (!board || !client) return;
+      const currentBoard = boardRef.current;
+      if (!currentBoard || !client) return;
 
       const objectId = `zone-${Date.now()}`;
       const width = 400;
@@ -113,7 +119,7 @@ export const useBoardObjects = ({
 
       // Persist atomically
       try {
-        await client.service('boards').patch(board.board_id, {
+        await client.service('boards').patch(currentBoard.board_id, {
           _action: 'upsertObject',
           objectId,
           objectData: {
@@ -132,7 +138,7 @@ export const useBoardObjects = ({
         setNodes(nodes => nodes.filter(n => n.id !== objectId));
       }
     },
-    [board, client, setNodes, handleUpdateObject]
+    [client, setNodes, handleUpdateObject] // Removed board dependency
   );
 
   /**
@@ -140,7 +146,8 @@ export const useBoardObjects = ({
    */
   const deleteObject = useCallback(
     async (objectId: string) => {
-      if (!board || !client) return;
+      const currentBoard = boardRef.current;
+      if (!currentBoard || !client) return;
 
       // Mark as deleted to prevent re-appearance during WebSocket updates
       deletedObjectsRef.current.add(objectId);
@@ -149,7 +156,7 @@ export const useBoardObjects = ({
       setNodes(nodes => nodes.filter(n => n.id !== objectId));
 
       try {
-        await client.service('boards').patch(board.board_id, {
+        await client.service('boards').patch(currentBoard.board_id, {
           _action: 'removeObject',
           objectId,
         });
@@ -165,7 +172,7 @@ export const useBoardObjects = ({
         deletedObjectsRef.current.delete(objectId);
       }
     },
-    [board, client, setNodes, deletedObjectsRef]
+    [client, setNodes, deletedObjectsRef] // Removed board dependency
   );
 
   /**
@@ -173,7 +180,8 @@ export const useBoardObjects = ({
    */
   const batchUpdateObjectPositions = useCallback(
     async (updates: Record<string, { x: number; y: number }>) => {
-      if (!board || !client || Object.keys(updates).length === 0) return;
+      const currentBoard = boardRef.current;
+      if (!currentBoard || !client || Object.keys(updates).length === 0) return;
 
       try {
         // Build objects payload with full object data + new positions
@@ -185,7 +193,7 @@ export const useBoardObjects = ({
             continue;
           }
 
-          const existingObject = board.objects?.[objectId];
+          const existingObject = currentBoard.objects?.[objectId];
           if (!existingObject) continue;
 
           objects[objectId] = {
@@ -199,7 +207,7 @@ export const useBoardObjects = ({
           return;
         }
 
-        await client.service('boards').patch(board.board_id, {
+        await client.service('boards').patch(currentBoard.board_id, {
           _action: 'batchUpsertObjects',
           objects,
         });
@@ -207,7 +215,7 @@ export const useBoardObjects = ({
         console.error('Failed to persist object positions:', error);
       }
     },
-    [board, client, deletedObjectsRef]
+    [client, deletedObjectsRef] // Removed board dependency
   );
 
   return {
