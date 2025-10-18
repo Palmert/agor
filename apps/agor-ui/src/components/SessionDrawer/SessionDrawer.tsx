@@ -181,7 +181,7 @@ const SessionDrawer = ({
           <div>
             <div>
               <Text strong style={{ fontSize: 16 }}>
-                {session.agentic_tool}
+                {session.title || session.agentic_tool}
               </Text>
               <Badge
                 status={getStatusColor()}
@@ -189,11 +189,6 @@ const SessionDrawer = ({
                 style={{ marginLeft: 12 }}
               />
             </div>
-            {session.description && (
-              <Text type="secondary" style={{ fontSize: 14 }}>
-                {session.description}
-              </Text>
-            )}
             {session.created_by && (
               <div style={{ marginTop: 4 }}>
                 <CreatedByTag

@@ -110,6 +110,9 @@ export interface Session {
   tool_use_count: number;
 
   // UI metadata
+  /** Session title (user-provided or auto-generated) */
+  title?: string;
+  /** Session description (legacy field, may contain first prompt) */
   description?: string;
 
   // Permission config (session-level tool approvals)

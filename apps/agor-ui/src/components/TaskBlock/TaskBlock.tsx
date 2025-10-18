@@ -145,12 +145,6 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   // Group messages into blocks
   const blocks = useMemo(() => groupMessagesIntoBlocks(messages), [messages]);
 
-  // Check if we have any assistant messages (user message exists, but no assistant response yet)
-  const hasAssistantMessages = useMemo(
-    () => messages.some(msg => msg.role === 'assistant'),
-    [messages]
-  );
-
   const getStatusIcon = () => {
     switch (task.status) {
       case 'completed':
@@ -287,8 +281,8 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
                 return null;
               })}
 
-              {/* Show loading bubble if task is running but no assistant response yet */}
-              {task.status === 'running' && !hasAssistantMessages && (
+              {/* Show typing indicator whenever task is actively running */}
+              {task.status === 'running' && (
                 <div style={{ margin: `${token.sizeUnit}px 0` }}>
                   <Bubble
                     placement="start"

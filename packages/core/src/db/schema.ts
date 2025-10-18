@@ -37,7 +37,8 @@ export const sessions = sqliteTable(
       .$type<{
         agentic_tool_version?: string;
         sdk_session_id?: string; // SDK session ID for conversation continuity (Claude Agent SDK, Codex SDK, etc.)
-        description?: string;
+        title?: string; // Session title (user-provided or auto-generated)
+        description?: string; // Legacy field, may contain first prompt
 
         // Repository context
         repo?: {
