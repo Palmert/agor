@@ -7,23 +7,16 @@
 
 import { type Database, RepoRepository } from '@agor/core/db';
 import { cloneRepo, getWorktreePath, createWorktree as gitCreateWorktree } from '@agor/core/git';
-import type { Repo } from '@agor/core/types';
-import type { Params } from '@feathersjs/feathers';
+import type { QueryParams, Repo } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * Repo service params
  */
-export interface RepoParams extends Params {
-  query?: {
-    slug?: string;
-    managed_by_agor?: boolean;
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type RepoParams = QueryParams<{
+  slug?: string;
+  managed_by_agor?: boolean;
+}>;
 
 /**
  * Extended repos service with custom methods

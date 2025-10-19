@@ -11,18 +11,19 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ContextFileDetail, ContextFileListItem } from '@agor/core/types';
-import type { Id, Params, ServiceMethods } from '@feathersjs/feathers';
+import type {
+  ContextFileDetail,
+  ContextFileListItem,
+  Id,
+  Params,
+  QueryParams,
+  ServiceMethods,
+} from '@agor/core/types';
 
 /**
  * Context service params (read-only, no create/update/delete)
  */
-export interface ContextParams extends Params {
-  query?: {
-    $limit?: number;
-    $skip?: number;
-  };
-}
+export type ContextParams = QueryParams<Record<string, never>>;
 
 /**
  * Context service - read-only filesystem browser for context/ folder

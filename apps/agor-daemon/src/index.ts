@@ -18,16 +18,30 @@ import {
   sessionMcpServers,
   TaskRepository,
 } from '@agor/core/db';
+import {
+  AuthenticationService,
+  errorHandler,
+  feathers,
+  feathersExpress,
+  JWTStrategy,
+  LocalStrategy,
+  rest,
+  socketio,
+} from '@agor/core/feathers';
 import { type PermissionDecision, PermissionService } from '@agor/core/permissions';
 import { ClaudeTool, CodexTool, GeminiTool } from '@agor/core/tools';
-import type { Message, SessionID, Task, User } from '@agor/core/types';
+import type {
+  Board,
+  Message,
+  Paginated,
+  Params,
+  Session,
+  SessionID,
+  Task,
+  User,
+} from '@agor/core/types';
 import { TaskStatus } from '@agor/core/types';
 import type { PermissionMode } from '@anthropic-ai/claude-agent-sdk';
-import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication';
-import { LocalStrategy } from '@feathersjs/authentication-local';
-import feathersExpress, { errorHandler, rest } from '@feathersjs/express';
-import type { Paginated, Params } from '@feathersjs/feathers';
-import { feathers } from '@feathersjs/feathers';
 
 /**
  * Type guard to check if result is paginated
@@ -36,7 +50,6 @@ function isPaginated<T>(result: T[] | Paginated<T>): result is Paginated<T> {
   return !Array.isArray(result) && 'data' in result && 'total' in result;
 }
 
-import socketio from '@feathersjs/socketio';
 import cors from 'cors';
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -291,7 +304,7 @@ async function main() {
   app.service('sessions').hooks({
     before: {
       create: [
-        (async (context: CreateHookContext) => {
+        (async (context: CreateHookContext<Partial<Session>>) => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const user = context.params.user;
           const userId = user?.user_id || 'anonymous';
@@ -306,10 +319,10 @@ async function main() {
 
           if (Array.isArray(context.data)) {
             context.data.forEach(item => {
-              if (!item.created_by) item.created_by = userId;
+              if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
-            context.data.created_by = userId;
+            (context.data as Record<string, unknown>).created_by = userId;
           }
           return context;
           // biome-ignore lint/suspicious/noExplicitAny: FeathersJS hook type mismatch requires assertion
@@ -321,7 +334,7 @@ async function main() {
   app.service('tasks').hooks({
     before: {
       create: [
-        (async (context: CreateHookContext) => {
+        (async (context: CreateHookContext<Partial<Task>>) => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const user = context.params.user;
           const userId = user?.user_id || 'anonymous';
@@ -336,10 +349,10 @@ async function main() {
 
           if (Array.isArray(context.data)) {
             context.data.forEach(item => {
-              if (!item.created_by) item.created_by = userId;
+              if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
-            context.data.created_by = userId;
+            (context.data as Record<string, unknown>).created_by = userId;
           }
           return context;
           // biome-ignore lint/suspicious/noExplicitAny: FeathersJS hook type mismatch requires assertion
@@ -351,16 +364,16 @@ async function main() {
   app.service('boards').hooks({
     before: {
       create: [
-        (async (context: CreateHookContext) => {
+        (async (context: CreateHookContext<Partial<Board>>) => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const userId = context.params.user?.user_id || 'anonymous';
 
           if (Array.isArray(context.data)) {
             context.data.forEach(item => {
-              if (!item.created_by) item.created_by = userId;
+              if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
-            context.data.created_by = userId;
+            (context.data as Record<string, unknown>).created_by = userId;
           }
           return context;
           // biome-ignore lint/suspicious/noExplicitAny: FeathersJS hook type mismatch requires assertion

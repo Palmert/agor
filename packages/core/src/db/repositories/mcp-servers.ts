@@ -17,8 +17,8 @@ import type {
   UUID,
 } from '@agor/core/types';
 import { and, eq, like } from 'drizzle-orm';
+import { formatShortId, generateId } from '../../lib/ids';
 import type { Database } from '../client';
-import { formatShortId, generateId } from '../ids';
 import { type MCPServerInsert, type MCPServerRow, mcpServers } from '../schema';
 import {
   AmbiguousIdError,
@@ -142,11 +142,11 @@ export class MCPServerRepository
       throw new AmbiguousIdError(
         'MCPServer',
         id,
-        results.map(r => formatShortId(r.mcp_server_id))
+        results.map(r => formatShortId(r.mcp_server_id as UUID))
       );
     }
 
-    return results[0].mcp_server_id;
+    return results[0].mcp_server_id as UUID;
   }
 
   /**

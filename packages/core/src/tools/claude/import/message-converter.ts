@@ -2,7 +2,7 @@
  * Convert Claude transcript messages to Agor Message format
  */
 
-import { generateId } from '../../../db/ids';
+import { generateId } from '../../../lib/ids';
 import type { Message, MessageID, SessionID } from '../../../types';
 import type { TranscriptMessage } from './transcript-parser';
 

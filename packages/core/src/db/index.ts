@@ -1,10 +1,14 @@
 // Schema and types
 
+// Drizzle ORM re-exports (so daemon doesn't import drizzle-orm directly)
+// Commonly used operators and utilities
+export { and, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+
+// ID utilities (re-exported from lib for convenience)
+export { formatShortId, generateId, IdResolutionError, resolveShortId } from '../lib/ids';
 // Client and database
 export * from './client';
 
-// ID utilities
-export { formatShortId, generateId, IdResolutionError, resolveShortId } from './ids';
 // Migrations
 export * from './migrate';
 // Repositories

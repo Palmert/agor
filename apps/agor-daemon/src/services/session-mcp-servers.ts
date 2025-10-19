@@ -6,18 +6,17 @@
  */
 
 import { type Database, SessionMCPServerRepository } from '@agor/core/db';
-import type { MCPServer, MCPServerID, SessionID } from '@agor/core/types';
-import type { Params } from '@feathersjs/feathers';
+import type { MCPServer, MCPServerID, QueryParams, SessionID } from '@agor/core/types';
 
 /**
  * Session-MCP service params
  */
-export interface SessionMCPParams extends Params {
+export type SessionMCPParams = QueryParams<{
   sessionId?: SessionID;
   serverId?: MCPServerID;
   enabled?: boolean;
   enabledOnly?: boolean;
-}
+}>;
 
 /**
  * Session-MCP Servers service

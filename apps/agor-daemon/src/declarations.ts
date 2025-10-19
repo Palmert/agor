@@ -7,56 +7,30 @@
  * - Application instance
  */
 
-import type { Board, Message, Repo, Session, Task } from '@agor/core/types';
-import type { Application as ExpressFeathers } from '@feathersjs/express';
+import type { ExpressApplication, Service } from '@agor/core/feathers';
 import type {
-  HookContext as FeathersHookContext,
+  Board,
+  AuthenticatedParams as CoreAuthenticatedParams,
+  AuthenticatedUser as CoreAuthenticatedUser,
+  CreateHookContext as CoreCreateHookContext,
+  HookContext as CoreHookContext,
   Params as FeathersParams,
-  Paginated,
-  Service,
-} from '@feathersjs/feathers';
+  Message,
+  Repo,
+  Session,
+  Task,
+} from '@agor/core/types';
 
-/**
- * Authenticated user from JWT/Local strategy
- */
-export interface AuthenticatedUser {
-  user_id: string;
-  email: string;
-}
-
-/**
- * Extended params with authentication
- */
-export interface AuthenticatedParams extends FeathersParams {
-  user?: AuthenticatedUser;
-}
-
-/**
- * Hook context for create operations
- * Supports both single objects and arrays for bulk operations
- *
- * Note: This extends FeathersHookContext with stricter types, but FeathersJS
- * expects the looser type. Use type assertions when defining hooks.
- */
-// biome-ignore lint/suspicious/noExplicitAny: Generic type parameter for flexibility with any entity type
-export interface CreateHookContext<T = any> extends FeathersHookContext {
-  params: AuthenticatedParams;
-  data: T | T[];
-}
-
-/**
- * Hook context for other operations
- */
-// biome-ignore lint/suspicious/noExplicitAny: Generic type parameter for flexibility with any entity type
-export interface HookContext<T = any> extends FeathersHookContext {
-  params: AuthenticatedParams;
-  data?: Partial<T> | Partial<T>[];
-}
+// Re-export core types for convenience
+export type AuthenticatedUser = CoreAuthenticatedUser;
+export type AuthenticatedParams = CoreAuthenticatedParams;
+export type CreateHookContext<T = unknown> = CoreCreateHookContext<T>;
+export type HookContext<T = unknown> = CoreHookContext<T>;
 
 /**
  * Application type for the daemon
  */
-export type Application = ExpressFeathers;
+export type Application = ExpressApplication;
 
 /**
  * Sessions service with custom methods (server-side implementation)

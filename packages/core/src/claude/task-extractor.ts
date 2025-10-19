@@ -4,7 +4,7 @@
  * Converts user messages into Task records with message ranges.
  */
 
-import { generateId } from '../db/ids';
+import { generateId } from '../lib/ids';
 import type { Message, SessionID, Task, UUID } from '../types';
 import { TaskStatus } from '../types';
 

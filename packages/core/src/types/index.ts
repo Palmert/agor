@@ -3,6 +3,7 @@
 export * from './agentic-tool';
 export * from './board';
 export * from './context';
+export * from './feathers';
 export * from './id';
 export * from './mcp';
 export * from './message';
@@ -13,6 +14,5 @@ export type { ClaudeCodePermissionMode, CodexPermissionMode, PermissionMode } fr
 export * from './session';
 export * from './task';
 export * from './ui';
-
-// Export User types explicitly to avoid re-exporting UserID (already exported from './id')
-export type { CreateUserInput, UpdateUserInput, User, UserRole } from './user';
+export * from './user';
+export * from './utils';

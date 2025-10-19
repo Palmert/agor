@@ -14,16 +14,10 @@
   },
   "dependencies": {
     "@agor/core": "workspace:*",
-    "@feathersjs/authentication": "^5.0.35",
-    "@feathersjs/authentication-local": "^5.0.35",
-    "@feathersjs/express": "^5.0.29",
-    "@feathersjs/feathers": "^5.0.29",
-    "@feathersjs/socketio": "^5.0.29",
     "@types/cors": "^2.8.19",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.44.6",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.7.2"

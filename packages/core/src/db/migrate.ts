@@ -299,7 +299,7 @@ export async function seedInitialData(db: Database): Promise<void> {
 
     if (result.rows.length === 0) {
       // Create default board
-      const { generateId } = await import('./ids');
+      const { generateId } = await import('../lib/ids');
       const boardId = generateId();
       const now = Date.now();
 

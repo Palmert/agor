@@ -6,9 +6,8 @@
  */
 
 import { loadConfig } from '@agor/core/config';
-import type { AuthenticationResult } from '@feathersjs/authentication';
-import { AuthenticationBaseStrategy } from '@feathersjs/authentication';
-import type { Params } from '@feathersjs/feathers';
+import { AuthenticationBaseStrategy } from '@agor/core/feathers';
+import type { AuthenticationResult, Params } from '@agor/core/types';
 
 // NotAuthenticated error (simplified implementation)
 class NotAuthenticated extends Error {
@@ -37,12 +36,12 @@ export class AnonymousStrategy extends AuthenticationBaseStrategy {
 
     // Return anonymous user with admin privileges (local mode)
     return {
+      accessToken: '',
       authentication: { strategy: 'anonymous' },
       user: {
         user_id: 'anonymous',
         email: 'anonymous@localhost',
         role: 'admin',
-        anonymous: true,
       },
     };
   }

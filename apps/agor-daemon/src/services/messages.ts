@@ -6,25 +6,18 @@
  */
 
 import { type Database, MessagesRepository } from '@agor/core/db';
-import type { Message, SessionID, TaskID } from '@agor/core/types';
-import type { Params } from '@feathersjs/feathers';
+import type { Message, QueryParams, SessionID, TaskID } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * Message service params
  */
-export interface MessageParams extends Params {
-  query?: {
-    session_id?: SessionID;
-    task_id?: TaskID;
-    type?: Message['type'];
-    role?: Message['role'];
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type MessageParams = QueryParams<{
+  session_id?: SessionID;
+  task_id?: TaskID;
+  type?: Message['type'];
+  role?: Message['role'];
+}>;
 
 /**
  * Extended messages service with custom methods

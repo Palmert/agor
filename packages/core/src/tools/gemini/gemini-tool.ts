@@ -11,9 +11,9 @@
  */
 
 import { execSync } from 'node:child_process';
-import { generateId } from '../../db/ids';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import { generateId } from '../../lib/ids';
 import type { Message, MessageID, PermissionMode, SessionID, TaskID } from '../../types';
 import type { ITool, StreamingCallbacks, ToolCapabilities } from '../base';
 import type { MessagesService, TasksService } from '../claude/claude-tool';

@@ -13,28 +13,22 @@ import type {
   MCPServerFilters,
   MCPSource,
   MCPTransport,
+  Paginated,
+  QueryParams,
   UpdateMCPServerInput,
 } from '@agor/core/types';
-import type { Paginated, Params } from '@feathersjs/feathers';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * MCP Server service params
  */
-export interface MCPServerParams extends Params {
-  paginate?: false | { default: number; max: number };
-  query?: {
-    scope?: string;
-    scopeId?: string;
-    transport?: string;
-    enabled?: boolean;
-    source?: string;
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type MCPServerParams = QueryParams<{
+  scope?: string;
+  scopeId?: string;
+  transport?: string;
+  enabled?: boolean;
+  source?: string;
+}>;
 
 /**
  * Extended MCP servers service with custom methods
@@ -82,7 +76,7 @@ export class MCPServersService extends DrizzleService<
     const total = servers.length;
     const data = servers.slice(skip, skip + limit);
 
-    if (params?.paginate !== false && this.paginate) {
+    if (this.paginate) {
       return {
         total,
         limit,

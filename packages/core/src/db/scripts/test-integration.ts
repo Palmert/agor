@@ -13,9 +13,9 @@
  *   npm run test:integration
  */
 
+import { formatShortId, generateId } from '../../lib/ids';
 import type { Session, TaskID } from '../../types';
 import { createDatabase } from '../client';
-import { formatShortId, generateId } from '../ids';
 import { initializeDatabase, seedInitialData } from '../migrate';
 import {
   BoardRepository,

@@ -6,23 +6,16 @@
  */
 
 import { BoardRepository, type Database } from '@agor/core/db';
-import type { Board, BoardObject, SessionID } from '@agor/core/types';
-import type { Params } from '@feathersjs/feathers';
+import type { Board, BoardObject, QueryParams, SessionID } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * Board service params
  */
-export interface BoardParams extends Params {
-  query?: {
-    slug?: string;
-    name?: string;
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type BoardParams = QueryParams<{
+  slug?: string;
+  name?: string;
+}>;
 
 /**
  * Extended boards service with custom methods

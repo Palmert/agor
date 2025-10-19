@@ -14,6 +14,7 @@ export default defineConfig({
     'tools/models': 'src/tools/models.ts', // Browser-safe model constants
     'tools/claude/models': 'src/tools/claude/models.ts',
     'permissions/index': 'src/permissions/index.ts',
+    'feathers/index': 'src/feathers/index.ts', // FeathersJS runtime re-exports
   },
   format: ['cjs', 'esm'],
   dts: true,

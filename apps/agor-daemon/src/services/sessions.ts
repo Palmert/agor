@@ -6,24 +6,17 @@
  */
 
 import { type Database, SessionRepository } from '@agor/core/db';
-import type { Session, TaskID } from '@agor/core/types';
-import type { Paginated, Params } from '@feathersjs/feathers';
+import type { Paginated, QueryParams, Session, TaskID } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * Session service params
  */
-export interface SessionParams extends Params {
-  query?: {
-    status?: Session['status'];
-    agentic_tool?: Session['agentic_tool'];
-    board_id?: string;
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type SessionParams = QueryParams<{
+  status?: Session['status'];
+  agentic_tool?: Session['agentic_tool'];
+  board_id?: string;
+}>;
 
 /**
  * Extended sessions service with custom methods

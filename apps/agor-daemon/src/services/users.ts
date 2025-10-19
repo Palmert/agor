@@ -7,11 +7,9 @@
 
 import { generateId } from '@agor/core';
 import type { Database } from '@agor/core/db';
-import { users } from '@agor/core/db';
-import type { User, UserID } from '@agor/core/types';
-import type { Paginated, Params } from '@feathersjs/feathers';
+import { eq, users } from '@agor/core/db';
+import type { Paginated, Params, User, UserID } from '@agor/core/types';
 import { compare, hash } from 'bcryptjs';
-import { eq } from 'drizzle-orm';
 
 /**
  * Create user input

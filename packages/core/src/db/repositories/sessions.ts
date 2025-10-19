@@ -6,8 +6,8 @@
 
 import type { Session, UUID } from '@agor/core/types';
 import { eq, like, or, sql } from 'drizzle-orm';
+import { formatShortId, generateId } from '../../lib/ids';
 import type { Database } from '../client';
-import { formatShortId, generateId } from '../ids';
 import { type SessionInsert, type SessionRow, sessions } from '../schema';
 import {
   AmbiguousIdError,
@@ -166,11 +166,11 @@ export class SessionRepository implements BaseRepository<Session, Partial<Sessio
       throw new AmbiguousIdError(
         'Session',
         id,
-        results.map(r => formatShortId(r.session_id))
+        results.map(r => formatShortId(r.session_id as UUID))
       );
     }
 
-    return results[0].session_id;
+    return results[0].session_id as UUID;
   }
 
   /**

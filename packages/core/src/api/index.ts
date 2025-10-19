@@ -5,6 +5,7 @@
  */
 
 import type {
+  AuthenticationResult,
   Board,
   ContextFileDetail,
   ContextFileListItem,
@@ -20,20 +21,6 @@ import type { Application, Paginated, Params } from '@feathersjs/feathers';
 import { feathers } from '@feathersjs/feathers';
 import socketio from '@feathersjs/socketio-client';
 import io, { type Socket } from 'socket.io-client';
-
-/**
- * Authentication result from Feathers authentication
- */
-export interface AuthenticationResult {
-  accessToken: string;
-  authentication: {
-    strategy: string;
-    accessToken?: string;
-    payload?: Record<string, unknown>;
-  };
-  user?: User;
-  [key: string]: unknown;
-}
 
 /**
  * Service interfaces for type safety

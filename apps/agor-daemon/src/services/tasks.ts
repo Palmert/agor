@@ -6,23 +6,16 @@
  */
 
 import { type Database, TaskRepository } from '@agor/core/db';
-import type { Task } from '@agor/core/types';
-import type { Paginated, Params } from '@feathersjs/feathers';
+import type { Paginated, QueryParams, Task } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
  * Task service params
  */
-export interface TaskParams extends Params {
-  query?: {
-    session_id?: string;
-    status?: Task['status'];
-    $limit?: number;
-    $skip?: number;
-    $sort?: Record<string, 1 | -1>;
-    $select?: string[];
-  };
-}
+export type TaskParams = QueryParams<{
+  session_id?: string;
+  status?: Task['status'];
+}>;
 
 /**
  * Extended tasks service with custom methods

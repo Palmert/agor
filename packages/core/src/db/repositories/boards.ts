@@ -6,8 +6,8 @@
 
 import type { Board, BoardObject, UUID } from '@agor/core/types';
 import { eq, like } from 'drizzle-orm';
+import { formatShortId, generateId } from '../../lib/ids';
 import type { Database } from '../client';
-import { formatShortId, generateId } from '../ids';
 import { type BoardInsert, type BoardRow, boards } from '../schema';
 import {
   AmbiguousIdError,
@@ -103,11 +103,11 @@ export class BoardRepository implements BaseRepository<Board, Partial<Board>> {
       throw new AmbiguousIdError(
         'Board',
         id,
-        results.map(r => formatShortId(r.board_id))
+        results.map(r => formatShortId(r.board_id as UUID))
       );
     }
 
-    return results[0].board_id;
+    return results[0].board_id as UUID;
   }
 
   /**

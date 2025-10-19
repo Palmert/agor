@@ -41,13 +41,6 @@ export type ShortID = string;
  */
 export type IDPrefix = string;
 
-// Entity-specific ID aliases for type clarity
-export type SessionID = UUID;
-export type TaskID = UUID;
-export type BoardID = UUID;
-export type ConceptID = UUID;
-export type ReportID = UUID;
-
 // ============================================================================
 // Generation
 // ============================================================================
@@ -141,6 +134,15 @@ export function isValidShortID(value: string): value is ShortID {
 export function shortId(uuid: UUID, length: number = 8): ShortID {
   const cleanUuid = uuid.replace(/-/g, '');
   return cleanUuid.slice(0, Math.min(length, 32));
+}
+
+/**
+ * Format short ID for display (alias for shortId for backward compatibility)
+ *
+ * @deprecated Use shortId() instead
+ */
+export function formatShortId(uuid: UUID, length: number = 8): ShortID {
+  return shortId(uuid, length);
 }
 
 /**
@@ -240,6 +242,21 @@ function formatUUIDWithHyphens(hex: string): UUID {
 // ============================================================================
 
 /**
+ * Error thrown when short ID resolution fails
+ */
+export class IdResolutionError extends Error {
+  constructor(
+    message: string,
+    public readonly type: 'not_found' | 'ambiguous',
+    public readonly prefix?: string,
+    public readonly candidates?: Array<{ id: string; label?: string }>
+  ) {
+    super(message);
+    this.name = 'IdResolutionError';
+  }
+}
+
+/**
  * Resolve a short ID prefix to a full entity.
  *
  * This implements git-style ID resolution:
@@ -250,7 +267,7 @@ function formatUUIDWithHyphens(hex: string): UUID {
  * @param prefix - Short ID or partial UUID
  * @param entities - Array of entities to search
  * @returns Matching entity
- * @throws Error if not found or ambiguous
+ * @throws IdResolutionError if not found or ambiguous
  *
  * @example
  * const sessions = [
@@ -269,15 +286,16 @@ export function resolveShortId<T extends { id: UUID }>(prefix: IDPrefix, entitie
   const cleanPrefix = prefix.replace(/-/g, '').toLowerCase();
 
   // Find all entities whose IDs start with this prefix
-  const matches = entities.filter((e) => {
+  const matches = entities.filter(e => {
     const cleanId = e.id.replace(/-/g, '').toLowerCase();
     return cleanId.startsWith(cleanPrefix);
   });
 
   if (matches.length === 0) {
-    throw new Error(
-      `No entity found with ID prefix: ${prefix}\n\n` +
-        `Use 'agor <entity> list' to see available IDs.`
+    throw new IdResolutionError(
+      `No entity found with ID prefix: ${prefix}\n\nUse 'agor <entity> list' to see available IDs.`,
+      'not_found',
+      prefix
     );
   }
 
@@ -288,7 +306,7 @@ export function resolveShortId<T extends { id: UUID }>(prefix: IDPrefix, entitie
   // Multiple matches - show suggestions with longer prefixes
   const suggestions = matches
     .slice(0, 10) // Limit to first 10 matches
-    .map((m) => {
+    .map(m => {
       const description = getEntityDescription(m);
       return `  - ${shortId(m.id, 12)}: ${description}`;
     })
@@ -296,10 +314,11 @@ export function resolveShortId<T extends { id: UUID }>(prefix: IDPrefix, entitie
 
   const ellipsis = matches.length > 10 ? `\n  ... and ${matches.length - 10} more` : '';
 
-  throw new Error(
-    `Ambiguous ID prefix: ${prefix}\n\n` +
-      `${matches.length} matches found:\n${suggestions}${ellipsis}\n\n` +
-      `Use a longer prefix to disambiguate.`
+  throw new IdResolutionError(
+    `Ambiguous ID prefix: ${prefix}\n\n${matches.length} matches found:\n${suggestions}${ellipsis}\n\nUse a longer prefix to disambiguate.`,
+    'ambiguous',
+    prefix,
+    matches.map(m => ({ id: m.id }))
   );
 }
 
@@ -360,7 +379,7 @@ export function findMinimumPrefixLength(ids: UUID[]): number {
 
   // Start with 8 chars and increment until all IDs are unique
   for (let length = 8; length <= 32; length++) {
-    const prefixes = new Set(ids.map((id) => shortId(id, length)));
+    const prefixes = new Set(ids.map(id => shortId(id, length)));
     if (prefixes.size === ids.length) {
       return length;
     }
@@ -397,6 +416,7 @@ export default {
   isValidUUID,
   isValidShortID,
   shortId,
+  formatShortId,
   formatIdForDisplay,
   expandPrefix,
   resolveShortId,

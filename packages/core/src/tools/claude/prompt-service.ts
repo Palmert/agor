@@ -14,11 +14,11 @@ import type {
   PermissionMode,
   PreToolUseHookInput,
 } from '@anthropic-ai/claude-agent-sdk/sdkTypes';
-import { generateId } from '../../db/ids';
 import type { MCPServerRepository } from '../../db/repositories/mcp-servers';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionMCPServerRepository } from '../../db/repositories/session-mcp-servers';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import { generateId } from '../../lib/ids';
 import type { PermissionService } from '../../permissions/permission-service';
 import type { MCPServersConfig, SessionID, TaskID } from '../../types';
 import { TaskStatus } from '../../types';

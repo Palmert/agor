@@ -6,9 +6,9 @@
 
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
+import { generateId } from '../lib/ids';
 import type { User, UserID } from '../types';
 import type { Database } from './client';
-import { generateId } from './ids';
 import { users } from './schema';
 
 /**

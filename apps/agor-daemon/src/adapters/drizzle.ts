@@ -5,7 +5,7 @@
  * Uses the repository pattern from @agor/drizzle-schema for type-safe database operations.
  */
 
-import type { Id, NullableId, Paginated, Params } from '@feathersjs/feathers';
+import type { Id, NullableId, Paginated, Params } from '@agor/core/types';
 
 /**
  * Query operators supported by the adapter
