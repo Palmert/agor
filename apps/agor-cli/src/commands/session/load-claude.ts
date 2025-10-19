@@ -12,6 +12,7 @@ import {
   loadClaudeSession,
   transcriptsToMessages,
 } from '@agor/core/claude';
+import { getDaemonUrl } from '@agor/core/config';
 import { generateId } from '@agor/core/db';
 import type { Session, SessionID } from '@agor/core/types';
 import { Args, Command, Flags } from '@oclif/core';
@@ -47,7 +48,7 @@ export default class SessionLoadClaude extends Command {
     const { args, flags } = await this.parse(SessionLoadClaude);
 
     // Check if daemon is running
-    const daemonUrl = process.env.AGOR_DAEMON_URL || 'http://localhost:3030';
+    const daemonUrl = await getDaemonUrl();
     const running = await isDaemonRunning(daemonUrl);
 
     if (!running) {

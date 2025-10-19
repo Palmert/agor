@@ -9,6 +9,7 @@ import type { AgentName, Repo, Session, SessionID } from '@agor/core/types';
 import { getDefaultPermissionMode } from '@agor/core/types';
 import { useState } from 'react';
 import type { NewSessionConfig } from '../components/NewSessionModal';
+import { getDaemonUrl } from '../config/daemon';
 
 interface UseSessionActionsResult {
   createSession: (config: NewSessionConfig) => Promise<Session | null>;
@@ -155,7 +156,7 @@ export function useSessionActions(client: AgorClient | null): UseSessionActionsR
       setError(null);
 
       // Call custom fork endpoint
-      const response = await fetch(`http://localhost:3030/sessions/${sessionId}/fork`, {
+      const response = await fetch(`${getDaemonUrl()}/sessions/${sessionId}/fork`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
@@ -188,7 +189,7 @@ export function useSessionActions(client: AgorClient | null): UseSessionActionsR
       setError(null);
 
       // Call custom spawn endpoint
-      const response = await fetch(`http://localhost:3030/sessions/${sessionId}/spawn`, {
+      const response = await fetch(`${getDaemonUrl()}/sessions/${sessionId}/spawn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),

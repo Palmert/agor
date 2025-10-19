@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { getDaemonUrl } from '../config/daemon';
 
 interface AuthConfig {
   requireAuth: boolean;
@@ -28,7 +29,7 @@ export function useAuthConfig() {
   useEffect(() => {
     async function fetchAuthConfig() {
       try {
-        const response = await fetch('http://localhost:3030/health');
+        const response = await fetch(`${getDaemonUrl()}/health`);
         if (!response.ok) {
           throw new Error(`Failed to fetch auth config: ${response.statusText}`);
         }

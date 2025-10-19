@@ -4,12 +4,12 @@
  * Displays sessions in a beautiful table with filters.
  */
 
-import { createClient, isDaemonRunning } from '@agor/core/api';
 import { formatShortId } from '@agor/core/db';
 import type { Session } from '@agor/core/types';
-import { Command, Flags } from '@oclif/core';
+import { Flags } from '@oclif/core';
 import chalk from 'chalk';
 import Table from 'cli-table3';
+import { BaseCommand } from '../../base-command';
 
 // Type for paginated responses
 interface Paginated<T> {
@@ -19,7 +19,7 @@ interface Paginated<T> {
   data: T[];
 }
 
-export default class SessionList extends Command {
+export default class SessionList extends BaseCommand {
   static description = 'List all sessions';
 
   static examples = [
@@ -102,20 +102,10 @@ export default class SessionList extends Command {
   async run(): Promise<void> {
     const { flags } = await this.parse(SessionList);
 
-    // Check if daemon is running
-    const daemonUrl = process.env.AGOR_DAEMON_URL || 'http://localhost:3030';
-    const running = await isDaemonRunning(daemonUrl);
-
-    if (!running) {
-      this.error(
-        `Daemon not running. Start it with: ${chalk.cyan('cd apps/agor-daemon && pnpm dev')}`
-      );
-    }
+    // Connect to daemon (auto-checks if running)
+    const client = await this.connectToDaemon();
 
     try {
-      // Connect to daemon
-      const client = createClient(daemonUrl);
-
       // Build query
       interface QueryParams {
         $limit: number;
@@ -210,14 +200,11 @@ export default class SessionList extends Command {
       }
       this.log('');
 
-      // Close socket connection and wait for it to close
-      await new Promise<void>(resolve => {
-        client.io.once('disconnect', () => resolve());
-        client.io.close();
-        setTimeout(() => resolve(), 1000); // Fallback timeout
-      });
+      // Cleanup client connection
+      await this.cleanupClient(client);
       process.exit(0);
     } catch (error) {
+      await this.cleanupClient(client);
       this.error(
         `Failed to fetch sessions: ${error instanceof Error ? error.message : String(error)}`
       );

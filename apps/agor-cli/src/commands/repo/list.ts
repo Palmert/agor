@@ -5,6 +5,7 @@
  */
 
 import { createClient, isDaemonRunning } from '@agor/core/api';
+import { getDaemonUrl } from '@agor/core/config';
 import { formatShortId } from '@agor/core/db';
 import type { Repo } from '@agor/core/types';
 import { Command, Flags } from '@oclif/core';
@@ -44,7 +45,7 @@ export default class RepoList extends Command {
     const { flags } = await this.parse(RepoList);
 
     // Check if daemon is running
-    const daemonUrl = process.env.AGOR_DAEMON_URL || 'http://localhost:3030';
+    const daemonUrl = await getDaemonUrl();
     const running = await isDaemonRunning(daemonUrl);
 
     if (!running) {

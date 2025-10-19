@@ -96,6 +96,10 @@ export function getDefaultConfig(): AgorConfig {
       allowAnonymous: true, // Default: Allow anonymous access (local mode)
       requireAuth: false, // Default: Do not require authentication
     },
+    ui: {
+      port: 5173,
+      host: 'localhost',
+    },
   };
 }
 
@@ -193,6 +197,7 @@ export async function getConfigValue(key: string): Promise<string | boolean | nu
     defaults: { ...defaults.defaults, ...config.defaults },
     display: { ...defaults.display, ...config.display },
     daemon: { ...defaults.daemon, ...config.daemon },
+    ui: { ...defaults.ui, ...config.ui },
   };
 
   const parts = key.split('.');
@@ -277,4 +282,23 @@ export async function unsetConfigValue(key: string): Promise<void> {
   }
 
   await saveConfig(config);
+}
+
+/**
+ * Get daemon URL from config
+ *
+ * Reads daemon host and port from config (with env var overrides).
+ *
+ * @returns Daemon URL (e.g., "http://localhost:3030")
+ */
+export async function getDaemonUrl(): Promise<string> {
+  const config = await loadConfig();
+  const defaults = getDefaultConfig();
+
+  // ENV var PORT overrides config (parse string to number)
+  const envPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : undefined;
+  const port = envPort || config.daemon?.port || defaults.daemon?.port || 3030;
+  const host = config.daemon?.host || defaults.daemon?.host || 'localhost';
+
+  return `http://${host}:${port}`;
 }

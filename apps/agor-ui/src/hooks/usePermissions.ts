@@ -7,6 +7,7 @@
 
 import type { PermissionDecision, PermissionRequest } from '@agor/core/permissions';
 import { useEffect, useState } from 'react';
+import { getDaemonUrl } from '../config/daemon';
 import type { AgorClient } from '../types/client';
 
 export function usePermissions(client: AgorClient | null) {
@@ -47,7 +48,7 @@ export function usePermissions(client: AgorClient | null) {
 
     // Send decision via custom endpoint
     // Note: We can't use the standard service methods here since this is a custom route
-    await fetch(`http://localhost:3030/sessions/${pendingRequest.sessionId}/permission-decision`, {
+    await fetch(`${getDaemonUrl()}/sessions/${pendingRequest.sessionId}/permission-decision`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

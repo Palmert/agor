@@ -67,6 +67,17 @@ export interface AgorDaemonSettings {
 }
 
 /**
+ * UI settings
+ */
+export interface AgorUISettings {
+  /** UI dev server port (default: 5173) */
+  port?: number;
+
+  /** UI host (default: localhost) */
+  host?: string;
+}
+
+/**
  * Tool credentials (API keys, tokens, etc.)
  */
 export interface AgorCredentials {
@@ -99,6 +110,9 @@ export interface AgorConfig {
   /** Daemon settings */
   daemon?: AgorDaemonSettings;
 
+  /** UI settings */
+  ui?: AgorUISettings;
+
   /** Tool credentials (API keys, tokens) */
   credentials?: AgorCredentials;
 }
@@ -116,4 +130,5 @@ export type ConfigKey =
   | `defaults.${keyof AgorDefaults}`
   | `display.${keyof AgorDisplaySettings}`
   | `daemon.${keyof AgorDaemonSettings}`
+  | `ui.${keyof AgorUISettings}`
   | `credentials.${keyof AgorCredentials}`;

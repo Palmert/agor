@@ -61,13 +61,20 @@ interface FeathersSocket extends Socket {
   };
 }
 
-const PORT = process.env.PORT || 3030;
 const DB_PATH = process.env.AGOR_DB_PATH || 'file:~/.agor/agor.db';
 
 // Main async function
 async function main() {
-  // Load config to get API key
+  // Load config to get ports and API keys
   const config = await loadConfig();
+
+  // Get daemon port from config (with env var override)
+  const envPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : undefined;
+  const DAEMON_PORT = envPort || config.daemon?.port || 3030;
+
+  // Get UI port from config for CORS
+  const UI_PORT = config.ui?.port || 5173;
+
   const apiKey = config.credentials?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -84,14 +91,17 @@ async function main() {
   const app = feathersExpress(feathers());
 
   // Enable CORS for all REST API requests
+  // Support UI port and 3 additional ports (for parallel dev servers)
+  const corsOrigins = [
+    `http://localhost:${UI_PORT}`,
+    `http://localhost:${UI_PORT + 1}`,
+    `http://localhost:${UI_PORT + 2}`,
+    `http://localhost:${UI_PORT + 3}`,
+  ];
+
   app.use(
     cors({
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5175',
-        'http://localhost:5176',
-      ],
+      origin: corsOrigins,
       credentials: true,
     })
   );
@@ -110,7 +120,7 @@ async function main() {
     socketio(
       {
         cors: {
-          origin: 'http://localhost:5173',
+          origin: corsOrigins,
           methods: ['GET', 'POST', 'PATCH', 'DELETE'],
           credentials: true,
         },
@@ -308,9 +318,10 @@ async function main() {
       patch: [
         async context => {
           // Handle atomic board object operations via _action parameter
-          // biome-ignore lint/suspicious/noExplicitAny: Data type depends on action
+          const contextData = context.data || {};
           const { _action, objectId, objectData, objects, deleteAssociatedSessions } =
-            (context.data || {}) as any;
+            // biome-ignore lint/suspicious/noExplicitAny: Data type varies by action (_action field determines structure)
+            contextData as any;
 
           if (_action === 'upsertObject') {
             if (!objectId || !objectData) {
@@ -1047,14 +1058,14 @@ async function main() {
   app.use(errorHandler());
 
   // Start server and store reference for shutdown
-  const server = await app.listen(PORT);
+  const server = await app.listen(DAEMON_PORT);
 
-  console.log(`🚀 Agor daemon running at http://localhost:${PORT}`);
-  console.log(`   Health: http://localhost:${PORT}/health`);
+  console.log(`🚀 Agor daemon running at http://localhost:${DAEMON_PORT}`);
+  console.log(`   Health: http://localhost:${DAEMON_PORT}/health`);
   console.log(
     `   Authentication: ${config.daemon?.allowAnonymous !== false ? '🔓 Anonymous (default)' : '🔐 Required'}`
   );
-  console.log(`   Login: POST http://localhost:${PORT}/authentication`);
+  console.log(`   Login: POST http://localhost:${DAEMON_PORT}/authentication`);
   console.log(`   Services:`);
   console.log(`     - /sessions`);
   console.log(`     - /tasks`);

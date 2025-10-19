@@ -7,6 +7,7 @@
 import { createClient } from '@agor/core/api';
 import type { User } from '@agor/core/types';
 import { useCallback, useEffect, useState } from 'react';
+import { getDaemonUrl } from '../config/daemon';
 
 interface AuthState {
   user: User | null;
@@ -22,7 +23,6 @@ interface UseAuthReturn extends AuthState {
   reAuthenticate: () => Promise<void>;
 }
 
-const DAEMON_URL = 'http://localhost:3030';
 const ACCESS_TOKEN_KEY = 'agor-access-token';
 const REFRESH_TOKEN_KEY = 'agor-refresh-token';
 
@@ -62,7 +62,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       // Create temporary client
-      const client = createClient(DAEMON_URL);
+      const client = createClient(getDaemonUrl());
 
       // Connect the client first (since autoConnect is false)
       client.io.connect();
@@ -269,7 +269,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       try {
-        const client = createClient(DAEMON_URL);
+        const client = createClient(getDaemonUrl());
         client.io.connect();
 
         await new Promise<void>((resolve, reject) => {
@@ -333,7 +333,7 @@ export function useAuth(): UseAuthReturn {
 
     try {
       // Create temporary client for login
-      const client = createClient(DAEMON_URL);
+      const client = createClient(getDaemonUrl());
 
       // Connect the client first (since autoConnect is false)
       client.io.connect();

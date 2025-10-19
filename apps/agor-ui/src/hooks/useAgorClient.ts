@@ -7,6 +7,7 @@
 import type { AgorClient } from '@agor/core/api';
 import { createClient } from '@agor/core/api';
 import { useEffect, useRef, useState } from 'react';
+import { getDaemonUrl } from '../config/daemon';
 
 interface UseAgorClientResult {
   client: AgorClient | null;
@@ -28,7 +29,7 @@ interface UseAgorClientOptions {
  * @returns Client instance, connection state, and error
  */
 export function useAgorClient(options: UseAgorClientOptions = {}): UseAgorClientResult {
-  const { url = 'http://localhost:3030', accessToken, allowAnonymous = false } = options;
+  const { url = getDaemonUrl(), accessToken, allowAnonymous = false } = options;
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(!!accessToken || allowAnonymous); // Connecting if we have token OR anonymous is allowed
   const [error, setError] = useState<string | null>(null);

@@ -3,6 +3,7 @@
  */
 
 import { createClient, isDaemonRunning } from '@agor/core/api';
+import { getDaemonUrl } from '@agor/core/config';
 import { Args, Command, Flags } from '@oclif/core';
 import chalk from 'chalk';
 
@@ -33,7 +34,7 @@ export default class McpRemove extends Command {
     const { args, flags } = await this.parse(McpRemove);
 
     // Check if daemon is running
-    const daemonUrl = process.env.AGOR_DAEMON_URL || 'http://localhost:3030';
+    const daemonUrl = await getDaemonUrl();
     const running = await isDaemonRunning(daemonUrl);
 
     if (!running) {

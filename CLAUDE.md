@@ -183,6 +183,44 @@ pnpm exec tsx src/db/scripts/setup-db.ts
 # Inspect with: sqlite3 ~/.agor/agor.db
 ```
 
+## Configuration
+
+Agor uses `~/.agor/config.yaml` for persistent configuration.
+
+### Port Configuration
+
+```yaml
+# ~/.agor/config.yaml
+daemon:
+  port: 3030 # Daemon port (default: 3030)
+  host: localhost # Daemon host (default: localhost)
+
+ui:
+  port: 5173 # UI dev server port (default: 5173)
+  host: localhost # UI host (default: localhost)
+```
+
+**Environment Variable Overrides:**
+
+- `PORT` - Overrides daemon port
+- `VITE_DAEMON_URL` - Full daemon URL for UI (e.g., `http://localhost:3030`)
+- `VITE_DAEMON_PORT` - Daemon port for UI (alternative to full URL)
+- `VITE_DAEMON_HOST` - Daemon host for UI
+
+**Usage:**
+
+```bash
+# Set daemon port via config
+pnpm agor config set daemon.port 4000
+
+# Set UI port via config
+pnpm agor config set ui.port 5174
+
+# Or use environment variables
+PORT=4000 pnpm daemon:dev
+VITE_DAEMON_PORT=4000 pnpm ui:dev
+```
+
 ## Core Primitives
 
 See `context/concepts/core.md` for full details.
