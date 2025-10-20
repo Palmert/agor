@@ -15,6 +15,7 @@ import type { MCPServerRepository } from '../../db/repositories/mcp-servers';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionMCPServerRepository } from '../../db/repositories/session-mcp-servers';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import type { WorktreeRepository } from '../../db/repositories/worktrees';
 import { generateId } from '../../lib/ids';
 import type { PermissionService } from '../../permissions/permission-service';
 import type { Message, MessageID, SessionID, TaskID } from '../../types';
@@ -68,7 +69,8 @@ export class ClaudeTool implements ITool {
     mcpServerRepo?: MCPServerRepository,
     permissionService?: PermissionService,
     private tasksService?: TasksService,
-    sessionsService?: SessionsService
+    sessionsService?: SessionsService,
+    worktreesRepo?: WorktreeRepository
   ) {
     if (messagesRepo && sessionsRepo) {
       this.promptService = new ClaudePromptService(
@@ -79,7 +81,8 @@ export class ClaudeTool implements ITool {
         mcpServerRepo,
         permissionService,
         tasksService,
-        sessionsService
+        sessionsService,
+        worktreesRepo
       );
     }
   }

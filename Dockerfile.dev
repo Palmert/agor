@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
   git \
   && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm@9.15.1
+# Install pnpm and AI coding agent CLIs
+RUN npm install -g pnpm@9.15.1 @anthropic-ai/claude-code @google/gemini-cli
 
 # Set working directory
 WORKDIR /app

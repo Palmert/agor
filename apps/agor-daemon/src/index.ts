@@ -17,6 +17,7 @@ import {
   SessionRepository,
   sessionMcpServers,
   TaskRepository,
+  WorktreeRepository,
 } from '@agor/core/db';
 import {
   AuthenticationService,
@@ -309,7 +310,7 @@ async function main() {
   const usersService = createUsersService(db);
   app.use('/users', usersService);
 
-  // Add hooks to inject created_by from authenticated user
+  // Add hooks to inject created_by from authenticated user and populate repo from worktree
   app.service('sessions').hooks({
     before: {
       create: [
@@ -333,6 +334,29 @@ async function main() {
           } else if (context.data && !context.data.created_by) {
             (context.data as Record<string, unknown>).created_by = userId;
           }
+
+          // Populate repo field from worktree_id
+          if (!Array.isArray(context.data) && context.data?.worktree_id) {
+            try {
+              const worktree = await context.app.service('worktrees').get(context.data.worktree_id);
+              if (worktree) {
+                const repo = await context.app.service('repos').get(worktree.repo_id);
+                if (repo) {
+                  (context.data as Record<string, unknown>).repo = {
+                    repo_id: repo.repo_id,
+                    repo_slug: repo.slug,
+                    worktree_name: worktree.name,
+                    cwd: worktree.path,
+                    managed_worktree: true,
+                  };
+                  console.log(`✅ Populated repo.cwd from worktree: ${worktree.path}`);
+                }
+              }
+            } catch (error) {
+              console.error('Failed to populate repo from worktree:', error);
+            }
+          }
+
           return context;
           // biome-ignore lint/suspicious/noExplicitAny: FeathersJS hook type mismatch requires assertion
         }) as any,
@@ -593,6 +617,7 @@ async function main() {
   const sessionsRepo = new SessionRepository(db);
   const sessionMCPRepo = new SessionMCPServerRepository(db);
   const mcpServerRepo = new MCPServerRepository(db);
+  const worktreesRepo = new WorktreeRepository(db);
   const _tasksRepo = new TaskRepository(db);
 
   // Initialize PermissionService for UI-based permission prompts
@@ -614,7 +639,8 @@ async function main() {
     mcpServerRepo,
     permissionService,
     app.service('tasks'), // Use service instead of repo for WebSocket events
-    app.service('sessions') // Sessions service for permission persistence (WebSocket broadcast)
+    app.service('sessions'), // Sessions service for permission persistence (WebSocket broadcast)
+    worktreesRepo // Worktrees repo for fetching worktree paths
   );
 
   // Initialize CodexTool (uses OPENAI_API_KEY from environment)

@@ -18,6 +18,7 @@ import type { MCPServerRepository } from '../../db/repositories/mcp-servers';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionMCPServerRepository } from '../../db/repositories/session-mcp-servers';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import type { WorktreeRepository } from '../../db/repositories/worktrees';
 import { generateId } from '../../lib/ids';
 import type { PermissionService } from '../../permissions/permission-service';
 import type { MCPServersConfig, SessionID, TaskID } from '../../types';
@@ -97,7 +98,8 @@ export class ClaudePromptService {
     private mcpServerRepo?: MCPServerRepository,
     private permissionService?: PermissionService,
     private tasksService?: TasksService,
-    private sessionsService?: SessionsService // FeathersJS Sessions service for WebSocket broadcasting
+    private sessionsService?: SessionsService, // FeathersJS Sessions service for WebSocket broadcasting
+    private worktreesRepo?: WorktreeRepository
   ) {
     // No client initialization needed - Agent SDK is stateless
   }
@@ -329,10 +331,25 @@ export class ClaudePromptService {
     const modelConfig = session.model_config;
     const model = modelConfig?.model || DEFAULT_CLAUDE_MODEL;
 
-    // Validate CWD exists
-    const cwd = session.repo?.cwd || process.cwd();
-    if (!session.repo?.cwd) {
-      console.warn(`Session ${sessionId} has no repo.cwd, using process.cwd(): ${cwd}`);
+    // Determine CWD from worktree (if session has one)
+    let cwd = process.cwd();
+    if (session.worktree_id && this.worktreesRepo) {
+      try {
+        const worktree = await this.worktreesRepo.findById(session.worktree_id);
+        if (worktree) {
+          cwd = worktree.path;
+          console.log(`✅ Using worktree path as cwd: ${cwd}`);
+        } else {
+          console.warn(
+            `⚠️  Session ${sessionId} references non-existent worktree ${session.worktree_id}, using process.cwd(): ${cwd}`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch worktree ${session.worktree_id}:`, error);
+        console.warn(`   Falling back to process.cwd(): ${cwd}`);
+      }
+    } else {
+      console.warn(`⚠️  Session ${sessionId} has no worktree_id, using process.cwd(): ${cwd}`);
     }
 
     this.logPromptStart(sessionId, prompt, cwd, resume ? session.sdk_session_id : undefined);
