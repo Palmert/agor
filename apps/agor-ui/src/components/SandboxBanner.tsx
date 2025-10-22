@@ -67,13 +67,14 @@ export function SandboxBanner() {
           message={
             <Space>
               <Typography.Text>
-                Run <code>agor init</code> in the terminal to set up authentication and API keys
+                Run <code>pnpm agor init</code> in the terminal to set up authentication and API
+                keys
               </Typography.Text>
               <Button
                 size="small"
                 onClick={() => {
                   // Copy command to clipboard
-                  navigator.clipboard.writeText('agor init');
+                  navigator.clipboard.writeText('pnpm agor init');
                 }}
               >
                 Copy Command
