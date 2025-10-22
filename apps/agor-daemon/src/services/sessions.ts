@@ -7,6 +7,7 @@
 
 import { type Database, SessionRepository } from '@agor/core/db';
 import type { Paginated, QueryParams, Session, TaskID } from '@agor/core/types';
+import { SessionStatus } from '@agor/core/types';
 import { DrizzleService } from '../adapters/drizzle';
 
 /**
@@ -53,7 +54,7 @@ export class SessionsService extends DrizzleService<Session, Partial<Session>, S
     const forkedSession = await this.create(
       {
         agentic_tool: parent.agentic_tool,
-        status: 'idle',
+        status: SessionStatus.IDLE,
         title: data.prompt.substring(0, 100), // First 100 chars as title
         description: data.prompt,
         worktree_id: parent.worktree_id,
@@ -104,7 +105,7 @@ export class SessionsService extends DrizzleService<Session, Partial<Session>, S
     const spawnedSession = await this.create(
       {
         agentic_tool: data.agentic_tool || parent.agentic_tool,
-        status: 'idle',
+        status: SessionStatus.IDLE,
         title: data.prompt.substring(0, 100), // First 100 chars as title
         description: data.prompt,
         worktree_id: parent.worktree_id,

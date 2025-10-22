@@ -5,6 +5,7 @@
  */
 
 import type { Session, UUID } from '@agor/core/types';
+import { SessionStatus } from '@agor/core/types';
 import { eq, like, or, sql } from 'drizzle-orm';
 import { formatShortId, generateId } from '../../lib/ids';
 import type { Database } from '../client';
@@ -66,7 +67,7 @@ export class SessionRepository implements BaseRepository<Session, Partial<Sessio
       session_id: sessionId,
       created_at: new Date(session.created_at ? session.created_at : now),
       updated_at: session.last_updated ? new Date(session.last_updated) : new Date(now),
-      status: session.status ?? 'idle',
+      status: session.status ?? SessionStatus.IDLE,
       agentic_tool: session.agentic_tool ?? 'claude-code',
       created_by: session.created_by ?? 'anonymous',
       board_id: null, // Board ID tracked separately in boards.sessions array
