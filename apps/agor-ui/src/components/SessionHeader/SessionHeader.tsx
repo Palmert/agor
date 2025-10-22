@@ -1,3 +1,5 @@
+import type { Session } from '@agor/core/types';
+import { TaskStatus } from '@agor/core/types';
 import {
   BranchesOutlined,
   ForkOutlined,
@@ -6,8 +8,6 @@ import {
   ToolOutlined,
 } from '@ant-design/icons';
 import { Badge, Space, Spin, Tag, Typography, theme } from 'antd';
-import type { Session } from '@agor/core/types';
-import { TaskStatus } from '@agor/core/types';
 
 const { Text } = Typography;
 
@@ -89,7 +89,7 @@ const SessionHeader = ({
             {session.agentic_tool}
           </Text>
           {session.status === TaskStatus.RUNNING ? (
-            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 12 }} />} />
+            <Spin size="small" />
           ) : (
             <Badge status={getStatusColor()} text={session.status.toUpperCase()} />
           )}

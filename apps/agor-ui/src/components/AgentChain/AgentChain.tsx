@@ -295,7 +295,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ messages }) => {
       // Determine status and icon
       const status = !toolResult ? 'pending' : isError ? 'error' : 'success';
       const icon = !toolResult ? (
-        <LoadingOutlined key="loading" spin style={{ fontSize: 14 }} />
+        <Spin key="loading" size="small" />
       ) : isError ? (
         <CloseCircleOutlined key="error" style={{ fontSize: 14, color: token.colorError }} />
       ) : (

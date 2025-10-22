@@ -1,3 +1,5 @@
+import type { Session, Task, User } from '@agor/core/types';
+import { TaskStatus } from '@agor/core/types';
 import {
   BranchesOutlined,
   CloseOutlined,
@@ -11,8 +13,6 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import { App, Badge, Button, Card, Collapse, Space, Spin, Tag, Typography } from 'antd';
-import type { Session, Task, User } from '@agor/core/types';
-import { TaskStatus } from '@agor/core/types';
 import { CreatedByTag } from '../metadata';
 import TaskListItem from '../TaskListItem';
 import { ToolIcon } from '../ToolIcon';
@@ -149,7 +149,7 @@ const SessionCard = ({
             {session.agentic_tool}
           </Text>
           {session.status === TaskStatus.RUNNING ? (
-            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 14 }} />} />
+            <Spin size="small" />
           ) : (
             <Badge
               status={

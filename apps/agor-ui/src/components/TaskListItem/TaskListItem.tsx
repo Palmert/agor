@@ -31,7 +31,7 @@ const TaskListItem = ({ task, onClick, compact = false }: TaskListItemProps) => 
       case 'completed':
         return <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 16 }} />;
       case 'running':
-        return <Spin indicator={<LoadingOutlined spin style={{ fontSize: 16 }} />} />;
+        return <Spin />;
       case 'failed':
         return <CloseCircleFilled style={{ color: token.colorError, fontSize: 16 }} />;
       default:

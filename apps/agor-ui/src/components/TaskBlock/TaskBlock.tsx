@@ -175,9 +175,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       case 'completed':
         return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
       case 'running':
-        return (
-          <Spin indicator={<LoadingOutlined spin style={{ fontSize: 16, color: '#1890ff' }} />} />
-        );
+        return <Spin />;
       case 'stopping':
         return <StopOutlined style={{ color: '#faad14' }} />; // Orange while stopping
       case 'stopped':
