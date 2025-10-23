@@ -1,12 +1,14 @@
 import type { DocsThemeConfig } from 'nextra-theme-docs';
 import { useConfig } from 'nextra-theme-docs';
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const config: DocsThemeConfig = {
   logo: (
     <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.png"
+        src={`${basePath}/logo.png`}
         alt="Agor"
         style={{ height: '42px', width: '42px' }}
         suppressHydrationWarning
@@ -80,7 +82,7 @@ const config: DocsThemeConfig = {
           }
         />
         <meta name="theme-color" content="#2e9a92" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/png" href={`${basePath}/favicon.png`} />
       </>
     );
   },
