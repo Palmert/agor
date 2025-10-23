@@ -1,5 +1,5 @@
 import type { Worktree } from '@agor/core/types';
-import { Checkbox, Popconfirm, Typography, theme } from 'antd';
+import { Alert, Checkbox, Popconfirm, Typography, theme } from 'antd';
 import { type ReactNode, useState } from 'react';
 
 const { Text } = Typography;
@@ -32,9 +32,12 @@ export const DeleteWorktreePopconfirm: React.FC<DeleteWorktreePopconfirmProps> =
         <div style={{ width: '100%' }}>
           <p>Are you sure you want to delete worktree "{worktree.name}"?</p>
           {sessionCount > 0 && (
-            <p style={{ color: '#ff4d4f' }}>
-              ⚠️ {sessionCount} session(s) reference this worktree.
-            </p>
+            <Alert
+              message={`Note: This will also delete ${sessionCount} related session(s)`}
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+            />
           )}
           <Checkbox
             checked={deleteFromFilesystem}

@@ -36,7 +36,7 @@ export const sessions = sqliteTable(
     worktree_id: text('worktree_id', { length: 36 })
       .notNull()
       .references(() => worktrees.worktree_id, {
-        onDelete: 'restrict', // Prevent deleting worktrees with active sessions
+        onDelete: 'cascade', // Cascade delete sessions when worktree is deleted
       }),
 
     // JSON blob for everything else (cross-DB via json() type)

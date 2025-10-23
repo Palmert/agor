@@ -77,7 +77,7 @@ async function createInitialSchema(db: Database): Promise<void> {
         forked_from_session_id TEXT,
         worktree_id TEXT NOT NULL,
         data TEXT NOT NULL,
-        FOREIGN KEY (worktree_id) REFERENCES worktrees(worktree_id) ON DELETE RESTRICT
+        FOREIGN KEY (worktree_id) REFERENCES worktrees(worktree_id) ON DELETE CASCADE
       )
     `);
 
