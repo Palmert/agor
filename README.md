@@ -44,7 +44,7 @@ docker compose up
 
 ### 🧩 **Agent Orchestration Layer**
 
-- Integrates with **Claude Code**, **Codex**, and soon **Gemini**, via an extensible SDK.
+- Integrates with **Claude Code**, **Codex**, and **Gemini** via an extensible SDK.
 - Centralized **MCP configuration** — connect once, use across all tools.
 - Swap or parallelize agents with one command; easily hand off work when one model stalls.
 
@@ -91,11 +91,10 @@ See the [Architecture Guide](https://mistercrunch.github.io/agor/guide/architect
 
 ## Roadmap
 
-- **Gemini Integration** — Complete the agent trio (Claude, Codex, Gemini) with unified SDK support (in progress)
+- **Deeper SDK Integrations** — Push beyond basic agent orchestration to match CLI-native features as SDKs evolve, closing feature gaps across Claude, Codex, and Gemini implementations
 - **Session Forking & Subtask Spawning** — Fork sessions to explore alternative approaches or spawn subtasks with fresh context windows, all with full genealogy tracking and interactive visualization
 - **Automated Reports** — AI-generated summaries after task completion, capturing outcomes, decisions made, and artifacts produced for future reference
 - **Context Management System** — Modular markdown-based context files that compose into session-specific knowledge, keeping every agent's worldview focused and version-controlled
-- **Federated Boards** — Share, remix, and learn from session patterns across teams and organizations
 
 ---
 
