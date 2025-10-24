@@ -15,7 +15,7 @@ import {
   PoweroffOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Empty, Form, Modal, Space, Table, Tooltip, theme } from 'antd';
+import { Badge, Button, Empty, Form, Modal, Space, Table, Tooltip, Typography, theme } from 'antd';
 import { useState } from 'react';
 import { DeleteWorktreePopconfirm } from '../DeleteWorktreePopconfirm';
 import { WorktreeFormFields } from '../WorktreeFormFields';
@@ -190,7 +190,7 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
       render: (name: string, _record: Worktree) => (
         <Space>
           <BranchesOutlined />
-          <Text strong>{name}</Text>
+          <Typography.Text strong>{name}</Typography.Text>
         </Space>
       ),
     },
@@ -274,7 +274,7 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
       render: (repoId: string) => (
         <Space>
           <FolderOutlined />
-          <Text>{getRepoName(repoId)}</Text>
+          <Typography.Text>{getRepoName(repoId)}</Typography.Text>
         </Space>
       ),
     },
@@ -282,7 +282,7 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
       title: 'Branch',
       dataIndex: 'ref',
       key: 'ref',
-      render: (ref: string) => <Text code>{ref}</Text>,
+      render: (ref: string) => <Typography.Text code>{ref}</Typography.Text>,
     },
     {
       title: 'Sessions',
@@ -290,9 +290,9 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
       key: 'sessions',
       width: 100,
       render: (sessions: string[]) => (
-        <Text type="secondary">
+        <Typography.Text type="secondary">
           {sessions?.length || 0} {sessions?.length === 1 ? 'session' : 'sessions'}
-        </Text>
+        </Typography.Text>
       ),
     },
     {
@@ -300,9 +300,9 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
       dataIndex: 'path',
       key: 'path',
       render: (path: string) => (
-        <Text code style={{ fontSize: 11 }}>
+        <Typography.Text code style={{ fontSize: 11 }}>
           {path}
-        </Text>
+        </Typography.Text>
       ),
     },
     {
@@ -350,9 +350,9 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
           alignItems: 'center',
         }}
       >
-        <Text type="secondary">
+        <Typography.Text type="secondary">
           Manage git worktrees for isolated development contexts across sessions.
-        </Text>
+        </Typography.Text>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -367,17 +367,17 @@ export const WorktreesTable: React.FC<WorktreesTableProps> = ({
 
       {worktrees && repos.length === 0 && (
         <Empty description="No repositories configured">
-          <Text type="secondary">
+          <Typography.Text type="secondary">
             Create a repository first in the Repositories tab to enable worktrees.
-          </Text>
+          </Typography.Text>
         </Empty>
       )}
 
       {repos.length > 0 && worktrees.length === 0 && (
         <Empty description="No worktrees yet">
-          <Text type="secondary">
+          <Typography.Text type="secondary">
             Worktrees will appear here once created from sessions or the CLI.
-          </Text>
+          </Typography.Text>
         </Empty>
       )}
 
