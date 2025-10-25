@@ -720,7 +720,10 @@ async function main() {
     async create(data: { prompt: string; task_id?: string }, params: RouteParams) {
       const id = params.route?.id;
       if (!id) throw new Error('Session ID required');
-      return sessionsService.fork(id, data, params);
+      console.log(`🔀 Forking session: ${id.substring(0, 8)}`);
+      const forkedSession = await sessionsService.fork(id, data, params);
+      console.log(`✅ Fork created: ${forkedSession.session_id.substring(0, 8)}`);
+      return forkedSession;
     },
   });
 
@@ -728,7 +731,10 @@ async function main() {
     async create(data: { prompt: string; agent?: string; task_id?: string }, params: RouteParams) {
       const id = params.route?.id;
       if (!id) throw new Error('Session ID required');
-      return sessionsService.spawn(id, data, params);
+      console.log(`🌱 Spawning session from: ${id.substring(0, 8)}`);
+      const spawnedSession = await sessionsService.spawn(id, data, params);
+      console.log(`✅ Spawn created: ${spawnedSession.session_id.substring(0, 8)}`);
+      return spawnedSession;
     },
   });
 

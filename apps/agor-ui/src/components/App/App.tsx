@@ -418,6 +418,7 @@ export const App: React.FC<AppProps> = ({
         }}
         onOpenTerminal={handleOpenTerminal}
         onUpdateSession={onUpdateSession}
+        onDelete={onDeleteSession}
       />
       <SettingsModal
         open={settingsOpen}

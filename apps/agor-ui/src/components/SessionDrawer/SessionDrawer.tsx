@@ -13,12 +13,14 @@ import {
   ApiOutlined,
   BranchesOutlined,
   CodeOutlined,
+  DeleteOutlined,
   ForkOutlined,
   SendOutlined,
   SettingOutlined,
   StopOutlined,
 } from '@ant-design/icons';
 import {
+  App,
   Badge,
   Button,
   Divider,
@@ -78,6 +80,7 @@ interface SessionDrawerProps {
   onOpenWorktree?: (worktreeId: string) => void;
   onOpenTerminal?: (commands: string[]) => void;
   onUpdateSession?: (sessionId: string, updates: Partial<Session>) => void;
+  onDelete?: (sessionId: string) => void;
 }
 
 const SessionDrawer = ({
@@ -100,8 +103,10 @@ const SessionDrawer = ({
   onOpenWorktree,
   onOpenTerminal,
   onUpdateSession,
+  onDelete,
 }: SessionDrawerProps) => {
   const { token } = theme.useToken();
+  const { modal } = App.useApp();
   const [inputValue, setInputValue] = React.useState('');
 
   // Get agent-aware default permission mode (wrapped in useCallback for hook deps)
@@ -140,6 +145,20 @@ const SessionDrawer = ({
   if (!session) {
     return null;
   }
+
+  const handleDelete = () => {
+    modal.confirm({
+      title: 'Delete Session',
+      content: 'Are you sure you want to delete this session? This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: () => {
+        onDelete?.(session.session_id);
+        onClose(); // Close drawer after deletion
+      },
+    });
+  };
 
   const handleSendPrompt = () => {
     if (inputValue.trim()) {
@@ -262,6 +281,11 @@ const SessionDrawer = ({
       }
       extra={
         <Space size={4}>
+          {onDelete && (
+            <Tooltip title="Delete Session">
+              <Button type="text" danger icon={<DeleteOutlined />} onClick={handleDelete} />
+            </Tooltip>
+          )}
           {onOpenTerminal && worktree && (
             <Tooltip title="Open terminal in worktree directory">
               <Button
