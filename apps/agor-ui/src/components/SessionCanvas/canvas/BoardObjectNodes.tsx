@@ -403,6 +403,13 @@ interface CommentNodeData {
   onClick?: (commentId: string) => void;
 }
 
+// Pin dimensions and positioning constants
+const PIN_WIDTH = 36;
+const PIN_HEIGHT = 48;
+const PIN_CIRCULAR_SIZE = 36; // Size of the circular top part
+const PIN_OFFSET_X = -PIN_WIDTH / 2; // Center horizontally
+const PIN_OFFSET_Y = -PIN_HEIGHT; // Position tip at coordinate
+
 const CommentNodeComponent = ({ data }: { data: CommentNodeData }) => {
   const { token } = theme.useToken();
   const { zoom } = useViewport();
@@ -436,21 +443,21 @@ const CommentNodeComponent = ({ data }: { data: CommentNodeData }) => {
       <div
         style={{
           position: 'relative',
-          width: '36px',
-          height: '48px',
+          width: `${PIN_WIDTH}px`,
+          height: `${PIN_HEIGHT}px`,
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
           // Offset so pin tip (bottom-center) is the anchor point
-          marginLeft: '-18px', // Center horizontally (half width)
-          marginTop: '-48px', // Position tip at coordinate (full height)
+          marginLeft: `${PIN_OFFSET_X}px`,
+          marginTop: `${PIN_OFFSET_Y}px`,
         }}
       >
         {/* Circular top part */}
         <div
           style={{
-            width: '36px',
-            height: '36px',
+            width: `${PIN_CIRCULAR_SIZE}px`,
+            height: `${PIN_CIRCULAR_SIZE}px`,
             borderRadius: '50% 50% 50% 0',
             background: pinColor,
             border: `2px solid ${token.colorBgContainer}`,
