@@ -1,0 +1,202 @@
+---
+title: Concepts
+description: Core concepts in Agor - Worktrees, Boards, Sessions, and Environments
+---
+
+# Concepts
+
+Agor introduces a few core primitives that make multiplayer AI development spatial, introspectable, and composable.
+
+## 🌳 Worktrees
+
+**A worktree is where your agentic coding sessions take place.** It's an isolated working directory for a git repository - think of it as a checkout of your repo at a specific branch or commit.
+
+Agor uses **git worktrees** under the hood (same concept as `git worktree` command), but manages them for you automatically. When you create a worktree in Agor, it:
+- Creates a git worktree in `~/.agor/worktrees/<repo>/<name>`
+- Optionally creates a new branch or checks out an existing one
+- Tracks metadata (issue URL, PR URL, notes)
+- Associates all sessions within that worktree
+
+**A worktree contains a tree of sessions** - as you work, you can fork and spawn sessions creating genealogy trees (more on that in the [Sessions](#sessions) section below).
+
+### Think of a worktree as a unit of work
+
+**Best practice**: 1 worktree = 1 issue = 1 PR = 1 feature
+
+```
+Worktree "auth-feature" (issue #123, PR #456)
+├─ Working directory: ~/.agor/worktrees/myapp/auth-feature
+├─ Branch: feature/oauth2-auth
+└─ Sessions: All AI sessions working on this feature
+
+Worktree "payment-integration" (issue #124, PR #457)
+├─ Working directory: ~/.agor/worktrees/myapp/payment-integration
+├─ Branch: feature/stripe-integration
+└─ Sessions: All AI sessions working on this feature
+```
+
+Each worktree is completely isolated - changes in one don't affect the other. This lets you work on multiple features simultaneously without switching branches or stashing changes.
+
+**Agor manages the git worktrees for you** - no need to run `git worktree add` manually. Just create a worktree in the UI or CLI, and Agor handles the git operations.
+
+## 🗺️ Boards
+
+**Boards are spatial canvases for organizing worktrees and sessions** - like Trello for AI coding work.
+
+Instead of linear lists, boards use a **2D spatial layout** where:
+- Each worktree appears as a card on the canvas
+- You can drag worktrees to arrange them spatially
+- Sessions within a worktree appear as a genealogy tree on the card
+- Multiple users see the same board in real-time (cursors, movements, updates)
+
+### Why spatial?
+
+**Your brain thinks spatially.** You remember:
+- "The auth worktree is in the top-left corner"
+- "Testing sessions are clustered on the right"
+- "That failed experiment is way down there"
+
+This is **location-based memory** - the same reason you remember where you parked, but forget a shopping list. A 2D board gives every worktree and session a "place."
+
+### Multiplayer collaboration
+
+Like Figma revolutionized design collaboration with spatial canvases, Agor does the same for AI coding:
+- Everyone sees the same board
+- Real-time cursors show where teammates are working
+- Drag a worktree, teammates see it move instantly
+- No "whose terminal is this?" confusion
+
+### 🎯 Zones
+
+**Zones are spatial regions on your board that trigger templated prompts when you drop a worktree into them.**
+
+Think: drag a worktree to "Ready for Review" → auto-prompts for code review. Drag to "Needs Tests" → auto-prompts for test generation.
+
+#### How zones work
+
+When you drop a worktree into a zone:
+
+1. **Session selection** - which session gets the prompt?
+   - **Always create new session** (default) - clean slate for the zone's task
+   - **Let me pick** - choose which session in the tree has the right context
+   - **Most recently active** - usually the session you were just working in
+
+2. **Templated prompt executes** - the zone's prompt template renders with dynamic data
+
+#### Handlebars templates
+
+Zone prompts use **Handlebars templates** to inject context from:
+- **Worktree**: `{{ worktree.name }}`, `{{ worktree.issue_url }}`, `{{ worktree.pull_request_url }}`
+- **Board**: `{{ board.name }}`, `{{ board.description }}`
+- **Session**: `{{ session.title }}`, `{{ session.description }}`
+- **Environment**: `{{ environment.url }}`, `{{ environment.status }}`
+- **Repo**: `{{ repo.name }}`, `{{ repo.default_branch }}`
+
+**Example zone prompt:**
+
+```
+Review the implementation of {{ worktree.issue_url }}.
+
+Check if:
+1. All acceptance criteria from the issue are met
+2. Edge cases are handled
+3. Error messages are user-friendly
+
+If approved, comment on {{ worktree.pull_request_url }} with summary.
+```
+
+Drop a worktree → auto-prompts with issue/PR links pre-filled.
+
+**Zones = Templated workflow automation for AI sessions.** Drag to trigger. Context flows automatically. No manual copy-paste.
+
+## 💬 Sessions
+
+**Sessions are AI conversations that can fork and spawn, creating genealogy trees.**
+
+Unlike linear CLI tools where conversations scroll up in a terminal, Agor sessions can branch:
+
+```
+Session: "Build authentication system"
+├─ Fork: "Write tests for auth"
+├─ Fork: "Build user profile that uses auth"
+└─ Spawn: "Research OAuth2 best practices"
+   └─ Spawn: "Evaluate PKCE vs implicit flow"
+```
+
+### Why this matters
+
+**Traditional AI coding tools**: Linear conversation. Want to try something different? Start over or lose your context.
+
+**Agor**: Branch your conversation like git branches code. Every fork/spawn is:
+- **Introspectable** - full conversation history kept
+- **Composable** - fork from forks, spawn from spawns
+- **Multiplayer-friendly** - teammates see the tree, understand the exploration
+- **Resumable** - post-prompt any session in the tree anytime
+
+### Fork vs Spawn
+
+**Fork** creates a sibling session with a **COPY of the conversation context** at that moment - perfect for parallel work streams that need the same starting knowledge but different focus.
+
+```
+Session: "Built user authentication feature"
+├─ Fork: "Write comprehensive unit tests for auth"
+├─ Fork: "Build user profile page that uses auth"
+└─ Fork: "Generate API documentation"
+```
+
+Each fork starts with the full context of how auth works, then builds its own conversation.
+
+**Spawn** creates a child session with a **FRESH context window** - the parent agent packages only the relevant context from the current session based on your spawn prompt.
+
+```
+Parent: "Build complete e-commerce checkout flow"
+├─ Spawn: "Implement payment gateway integration"
+├─ Spawn: "Build inventory validation service"
+└─ Spawn: "Create order confirmation email templates"
+```
+
+Parent orchestrates, children execute focused subtasks with clean context.
+
+**Key insight**: Both fork and spawn work on the **SAME worktree** (same filesystem), but create **independent conversations** going forward. You're not exploring alternative implementations (they'd conflict on disk!) - you're doing parallel work that starts from shared knowledge.
+
+## 💻 Environments
+
+**Environments are runtime instances (dev servers, Docker containers, etc.) for your worktrees.**
+
+Each repo can have an **environment configuration template** that defines:
+- How to start/stop the environment (commands)
+- Health check configuration
+- App URL template
+
+Each worktree gets its **own environment instance** with:
+- Unique ports (auto-assigned using worktree unique ID)
+- Process status (running, stopped, error)
+- Access URLs (resolved from templates)
+- Live logs
+
+**Example environment config:**
+
+```yaml
+up_command: "UI_PORT={{add 9000 worktree.unique_id}} pnpm dev"
+down_command: "pkill -f 'vite.*{{add 9000 worktree.unique_id}}'"
+app_url_template: "http://localhost:{{add 9000 worktree.unique_id}}"
+```
+
+**Result:**
+- Worktree #1 runs on port 9001
+- Worktree #2 runs on port 9002
+- Worktree #3 runs on port 9003
+
+This lets you run multiple worktrees simultaneously without port conflicts. Start/stop environments directly from the UI or CLI.
+
+---
+
+## Summary
+
+- **Worktrees** = Isolated git working directories (1 worktree = 1 issue = 1 PR)
+- **Boards** = Spatial canvases for organizing worktrees with real-time multiplayer collaboration
+- **Zones** = Spatial triggers for templated prompts (Kanban-style workflow automation)
+- **Sessions** = AI conversations that can fork/spawn creating genealogy trees
+- **Environments** = Runtime instances with unique ports for each worktree
+
+Together, these primitives make Agor a **multiplayer, spatial layer for AI-assisted development** - connecting Claude Code, Codex, Gemini, and any agentic coding tool into one unified workspace.
