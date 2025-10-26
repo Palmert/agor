@@ -1,8 +1,19 @@
 # Async Jobs & Long-Running Operations
 
-**Status:** Exploration
+**Status:** Exploration (Updated with pragmatic approaches)
 **Created:** 2025-10-06
+**Updated:** 2025-10-25
 **Context:** Session creation, repo cloning, and worktree setup can take 10s+ for large repos
+
+## TL;DR - Pragmatic Approach for Local Dev Tools
+
+**For Agor (local dev tool):**
+
+1. **Now:** Just increase HTTP timeouts to 10 minutes - blocking is fine!
+2. **Next:** Fire-and-forget async functions + WebSocket events for progress (no job queue needed)
+3. **Later:** Full job queue only if building multi-tenant SaaS (probably never)
+
+**Key insight:** You're building a dev tool where users are admins, not a production SaaS. Keep it simple!
 
 ## Problem Statement
 
@@ -75,7 +86,154 @@ const handleCreate = async () => {
 
 ## Architecture Options
 
-### Option 1: Background Jobs with Status Polling (Recommended for MVP)
+### Option 0: Fire-and-Forget with WebSocket Events (Recommended for Local Dev Tools)
+
+**Pattern:** Async function + WebSocket events for progress (no job queue needed)
+
+```typescript
+// Service method - returns immediately
+async create(data: CreateRepoData) {
+  const repoId = generateId();
+
+  // Create DB record with status='cloning'
+  const repo = await reposRepo.create({
+    repo_id: repoId,
+    remote_url: data.remote_url,
+    status: 'cloning',
+  });
+
+  // Start async work (don't await! runs in background)
+  this.cloneRepoAsync(repoId, data.remote_url).catch(err => {
+    console.error('Clone failed:', err);
+  });
+
+  // Return 200 immediately
+  return repo;
+}
+
+// Async work function - emits WebSocket events
+private async cloneRepoAsync(repoId: string, url: string) {
+  try {
+    // Emit progress events (broadcasts to all connected clients)
+    this.emit('progress', {
+      repo_id: repoId,
+      stage: 'cloning',
+      percent: 0
+    });
+
+    await git.clone(url, `~/.agor/repos/${repoId}`);
+
+    this.emit('progress', {
+      repo_id: repoId,
+      stage: 'cloning',
+      percent: 100
+    });
+
+    // Update DB status
+    await reposRepo.update(repoId, { status: 'ready' });
+
+    // Emit completion event (FeathersJS broadcasts to all clients)
+    this.emit('patched', { repo_id: repoId, status: 'ready' });
+
+  } catch (error) {
+    await reposRepo.update(repoId, {
+      status: 'failed',
+      error: error.message
+    });
+    this.emit('patched', {
+      repo_id: repoId,
+      status: 'failed',
+      error: error.message
+    });
+  }
+}
+```
+
+**Client side (UI):**
+
+```typescript
+// Create repo - returns immediately with status='cloning'
+const repo = await client.service('repos').create({
+  remote_url: 'https://github.com/large/repo',
+});
+
+// Listen for progress events
+client.service('repos').on('progress', event => {
+  if (event.repo_id === repo.repo_id) {
+    setProgress(event.percent);
+    setStage(event.stage);
+  }
+});
+
+// Listen for completion via standard FeathersJS 'patched' event
+client.service('repos').on('patched', updatedRepo => {
+  if (updatedRepo.repo_id === repo.repo_id) {
+    if (updatedRepo.status === 'ready') {
+      message.success('Repo cloned!');
+      onComplete(updatedRepo);
+    } else if (updatedRepo.status === 'failed') {
+      message.error(`Clone failed: ${updatedRepo.error}`);
+    }
+  }
+});
+```
+
+**Alternative: Increased Timeouts (Even Simpler)**
+
+For operations <10 minutes, just increase HTTP timeouts:
+
+```typescript
+// apps/agor-daemon/src/index.ts
+server.timeout = 10 * 60 * 1000; // 10 minutes
+
+// Keep synchronous approach, no async needed
+async create(data: CreateRepoData) {
+  const repo = await reposRepo.create(data);
+
+  // This blocks the HTTP request, but that's fine for <10min
+  await git.clone(data.remote_url, repo.path);
+
+  await reposRepo.update(repo.repo_id, { status: 'ready' });
+
+  return repo;
+}
+```
+
+**When to use which:**
+
+- **Increased timeouts**: Operations <10 minutes, single-user dev tool
+- **Fire-and-forget + WebSockets**: Operations >10 minutes OR want real-time progress
+- **Full job queue (Options 1-3)**: Multi-tenant SaaS, need job history/retry/resume
+
+**Pros:**
+
+- ✅ Simplest async approach (no job queue, no polling)
+- ✅ Uses existing FeathersJS WebSocket infrastructure
+- ✅ Real-time progress updates
+- ✅ Non-blocking HTTP responses
+- ✅ Multiple operations can run in parallel
+- ✅ Client can disconnect/reconnect (state persisted in DB)
+- ✅ No additional dependencies
+- ✅ Perfect for local dev tools
+
+**Cons:**
+
+- ❌ No job queue/history (but you have repos/sessions records)
+- ❌ No built-in retry (but user can just click "create" again)
+- ❌ Operation lost if daemon crashes mid-operation (acceptable for dev tool)
+- ❌ Not suitable for multi-tenant production (no resource isolation)
+
+**Key Insight:**
+
+Node.js event loop handles concurrency automatically. Multiple `cloneRepoAsync()` calls run in parallel without blocking each other or the HTTP server. No need for subprocesses unless:
+
+- Operation is CPU-intensive (blocks event loop)
+- Need process isolation (crash shouldn't take down daemon)
+- Need to kill/cancel mid-operation
+
+For I/O-bound operations (git clone, file parsing, database writes), async functions are sufficient.
+
+### Option 1: Background Jobs with Status Polling
 
 **Pattern:** Job queue + polling for status updates
 
@@ -263,35 +421,122 @@ await octokit.actions.createWorkflowDispatch({
 - ❌ Network dependency
 - ❌ Slower for small operations
 
-## Recommendation: Phased Approach
+## Recommendation: Pragmatic Approach for Local Dev Tools
 
-### Phase 1: Inline with Progress (Current)
+### Phase 1: Increased Timeouts (Current - Simplest)
 
-- Keep synchronous operations for MVP
+For **local dev tool** where users are admins and control the machine:
+
+- Increase HTTP timeout to 10 minutes: `server.timeout = 10 * 60 * 1000`
+- Keep synchronous operations - blocking is fine for <10min
 - Add progress logging in CLI
 - Show loading spinners in UI
-- **Good enough for:** Worktree creation (<10s), small repo clones
+- **Good enough for:** Worktree creation, small/medium repo clones, session imports
+- **Trade-off:** HTTP request blocks, but that's acceptable for single-user dev tool
 
-### Phase 2: Background Jobs with Polling
+### Phase 2: Fire-and-Forget with WebSocket Events (Recommended Next Step)
 
-- Implement `jobs` service + table
-- Add simple Node.js worker loop
-- WebSocket progress events
-- **Unlocks:** Large repo clones, Claude session imports, report generation
+For operations that benefit from real-time progress or >10 minutes:
 
-### Phase 3: Enhanced Job System (Future)
+- Implement **Option 0** pattern (see above)
+- Service returns immediately with `status='pending'`
+- Async function runs in background, emits progress events
+- Client listens to WebSocket events for updates
+- **Unlocks:** Real-time progress bars, non-blocking UI, parallel operations
+- **Effort:** 2-4 hours (no new tables, no workers, just async functions)
 
-- Job retry/resume on failure
-- Job history and analytics
-- Job cancellation
-- **When needed:** Production deployment, multi-user scenarios
+### Phase 3: Full Job Queue (Only If Needed)
 
-### Phase 4: Distributed Queue (If needed)
+**Only implement if:**
+
+- Building multi-tenant SaaS (need resource isolation)
+- Operations routinely take hours (need job history/retry)
+- Need job scheduling/cron (periodic reports, cleanup tasks)
+
+**Don't implement for:**
+
+- ✅ Local dev tool (you are here!)
+- ✅ Single-user daemon
+- ✅ Operations <30 minutes
+
+### Phase 4: Distributed Queue (Probably Never)
 
 - Add BullMQ + Redis for horizontal scaling
-- **Only if:** Supporting multi-tenant cloud deployment
+- **Only if:** Supporting multi-tenant cloud deployment with 1000s of users
+- **For Agor:** Likely not needed (local dev tool)
 
-## Implementation Guide (Phase 2)
+## Implementation Guides
+
+### Quick Start: Fire-and-Forget Pattern (Phase 2)
+
+**Example: Async repo cloning with WebSocket events**
+
+```typescript
+// apps/agor-daemon/src/services/repos/repos.class.ts
+
+export class ReposService extends KnexService<Repo> {
+  async create(data: CreateRepoData) {
+    const repoId = generateId();
+
+    // Create DB record immediately
+    const repo = await super.create({
+      repo_id: repoId,
+      remote_url: data.remote_url,
+      status: 'cloning', // Set initial status
+    });
+
+    // Start async work (don't await!)
+    this.cloneAsync(repoId, data.remote_url).catch(err => {
+      console.error('Clone failed:', err);
+    });
+
+    // Return immediately
+    return repo;
+  }
+
+  private async cloneAsync(repoId: string, url: string) {
+    try {
+      // Emit progress
+      this.emit('progress', { repo_id: repoId, stage: 'cloning', percent: 0 });
+
+      // Do the work
+      const path = `~/.agor/repos/${repoId}`;
+      await git.clone(url, path);
+
+      this.emit('progress', { repo_id: repoId, stage: 'cloning', percent: 100 });
+
+      // Update DB
+      await this.patch(repoId, { status: 'ready', path });
+
+      // FeathersJS broadcasts 'patched' event to all clients automatically
+    } catch (error) {
+      await this.patch(repoId, { status: 'failed', error: error.message });
+    }
+  }
+}
+```
+
+**Client (UI):**
+
+```typescript
+// Create repo - returns immediately
+const repo = await client.service('repos').create({ remote_url });
+
+// Listen for events
+client.service('repos').on('progress', e => {
+  if (e.repo_id === repo.repo_id) setProgress(e.percent);
+});
+
+client.service('repos').on('patched', updated => {
+  if (updated.repo_id === repo.repo_id && updated.status === 'ready') {
+    message.success('Clone complete!');
+  }
+});
+```
+
+**That's it!** No job table, no workers, no polling.
+
+### Full Job Queue Implementation (Phase 3 - Only If Needed)
 
 ### 1. Database Schema
 
@@ -430,12 +675,27 @@ export function useJobProgress(jobId: string) {
 - ✅ No additional runtime needed
 - ✅ Can use `setInterval()` or `while(true)` loop
 
-## Next Steps
+## Next Steps (Pragmatic Path)
 
-1. **Immediate:** Add progress logging to CLI session import
-2. **Short-term:** Implement basic jobs table + service
-3. **Medium-term:** Add background worker for session creation
-4. **Long-term:** Enhanced job system with retry/resume
+1. **Immediate (Phase 1):** Increase HTTP timeout to 10 minutes in daemon
+
+   ```typescript
+   // apps/agor-daemon/src/index.ts
+   server.timeout = 10 * 60 * 1000;
+   ```
+
+2. **Short-term (Phase 2):** Add fire-and-forget pattern for repo cloning
+   - Returns immediately with `status='cloning'`
+   - Async function emits `progress` events via WebSocket
+   - Emits `patched` event on completion
+   - Effort: ~2-4 hours
+
+3. **Medium-term:** Add progress logging to CLI operations
+   - Session import: show % progress as messages are inserted
+   - Repo clone: show git clone output
+
+4. **Long-term (Only if building SaaS):** Full job queue with history/retry
+   - Probably not needed for local dev tool!
 
 ## References
 
