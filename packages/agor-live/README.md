@@ -91,4 +91,4 @@ https://github.com/agorapp/agor
 
 ## License
 
-MIT
+BSL-1.1
