@@ -99,7 +99,12 @@ export class SessionsService extends DrizzleService<Session, Partial<Session>, S
    */
   async spawn(
     id: string,
-    data: { prompt: string; agentic_tool?: Session['agentic_tool']; task_id?: string },
+    data: {
+      prompt: string;
+      title?: string;
+      agentic_tool?: Session['agentic_tool'];
+      task_id?: string;
+    },
     params?: SessionParams
   ): Promise<Session> {
     const parent = await this.get(id, params);
@@ -108,7 +113,7 @@ export class SessionsService extends DrizzleService<Session, Partial<Session>, S
       {
         agentic_tool: data.agentic_tool || parent.agentic_tool,
         status: SessionStatus.IDLE,
-        title: data.prompt.substring(0, 100), // First 100 chars as title
+        title: data.title || data.prompt.substring(0, 100), // Use provided title or first 100 chars
         description: data.prompt,
         worktree_id: parent.worktree_id,
         git_state: { ...parent.git_state },
@@ -171,6 +176,56 @@ export class SessionsService extends DrizzleService<Session, Partial<Session>, S
       ancestors,
       children,
     };
+  }
+
+  /**
+   * Override remove to cascade delete children (forks and subsessions)
+   */
+  async remove(
+    id: import('@agor/core/types').NullableId,
+    params?: SessionParams
+  ): Promise<Session | Session[]> {
+    // Handle batch delete
+    if (id === null) {
+      // For multi-delete, get all matching sessions and delete each one
+      const sessions = (await super.find(params)) as Session[];
+      const results: Session[] = [];
+
+      for (const session of sessions) {
+        const deleted = (await this.remove(session.session_id, params)) as Session;
+        results.push(deleted);
+      }
+
+      return results;
+    }
+
+    // Single delete with cascade
+    // Get the session before deleting
+    const session = await this.get(id, params);
+
+    // Find all children (forks and subsessions)
+    const children = await this.sessionRepo.findChildren(id);
+
+    // Recursively delete all children first
+    if (children.length > 0) {
+      console.log(
+        `🗑️  Cascading delete: session ${id.substring(0, 8)} has ${children.length} children`
+      );
+
+      for (const child of children) {
+        await this.remove(child.session_id, params);
+      }
+    }
+
+    // Now delete the current session (messages and tasks are cascade-deleted by DB)
+    await this.sessionRepo.delete(id);
+
+    console.log(`✅ Deleted session ${id.substring(0, 8)} and all descendants`);
+
+    // Emit removed event for WebSocket broadcasting
+    this.emit?.('removed', session, params);
+
+    return session;
   }
 
   /**

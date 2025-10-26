@@ -769,7 +769,10 @@ async function main() {
   });
 
   app.use('/sessions/:id/spawn', {
-    async create(data: { prompt: string; agent?: string; task_id?: string }, params: RouteParams) {
+    async create(
+      data: { prompt: string; title?: string; agent?: string; task_id?: string },
+      params: RouteParams
+    ) {
       const id = params.route?.id;
       if (!id) throw new Error('Session ID required');
       console.log(`🌱 Spawning session from: ${id.substring(0, 8)}`);

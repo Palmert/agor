@@ -30,7 +30,7 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DeleteWorktreePopconfirm } from '../DeleteWorktreePopconfirm';
 import { type ForkSpawnAction, ForkSpawnModal } from '../ForkSpawnModal';
 import { CreatedByTag } from '../metadata';
@@ -94,6 +94,9 @@ const WorktreeCard = ({
     session: null,
   });
 
+  // Tree expansion state - track which nodes are expanded
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
+
   // Handle fork/spawn modal confirm
   const handleForkSpawnConfirm = async (prompt: string) => {
     if (!forkSpawnModal.session) return;
@@ -107,6 +110,24 @@ const WorktreeCard = ({
 
   // Build genealogy tree structure
   const sessionTreeData = useMemo(() => buildSessionTree(sessions), [sessions]);
+
+  // Auto-expand all nodes on mount and when new nodes with children are added
+  useEffect(() => {
+    // Collect all node keys that have children
+    const collectKeysWithChildren = (nodes: SessionTreeNode[]): React.Key[] => {
+      const keys: React.Key[] = [];
+      for (const node of nodes) {
+        if (node.children && node.children.length > 0) {
+          keys.push(node.key);
+          keys.push(...collectKeysWithChildren(node.children));
+        }
+      }
+      return keys;
+    };
+
+    const allKeysWithChildren = collectKeysWithChildren(sessionTreeData);
+    setExpandedKeys(allKeysWithChildren);
+  }, [sessionTreeData]);
 
   // Render function for tree nodes (our rich session cards)
   const renderSessionNode = (node: SessionTreeNode) => {
@@ -199,7 +220,8 @@ const WorktreeCard = ({
   const sessionListContent = (
     <Tree
       treeData={sessionTreeData}
-      defaultExpandAll
+      expandedKeys={expandedKeys}
+      onExpand={keys => setExpandedKeys(keys as React.Key[])}
       showLine
       showIcon={false}
       selectable={false}

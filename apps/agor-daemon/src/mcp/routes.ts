@@ -138,13 +138,18 @@ export function setupMCPRoutes(app: Application): void {
             {
               name: 'agor_sessions_spawn',
               description:
-                'Spawn a child session (subsession) for delegating work to another agent. Creates a new session with parent genealogy tracking.',
+                'Spawn a child session (subsession) for delegating work to another agent. Creates a new session, executes the prompt, and tracks genealogy.',
               inputSchema: {
                 type: 'object',
                 properties: {
                   prompt: {
                     type: 'string',
                     description: 'The prompt/task for the subsession agent to execute',
+                  },
+                  title: {
+                    type: 'string',
+                    description:
+                      'Optional title for the session (defaults to first 100 chars of prompt)',
                   },
                   agenticTool: {
                     type: 'string',
@@ -335,11 +340,16 @@ export function setupMCPRoutes(app: Application): void {
 
           const spawnData: {
             prompt: string;
+            title?: string;
             agentic_tool?: string;
             task_id?: string;
           } = {
             prompt: args.prompt,
           };
+
+          if (args.title) {
+            spawnData.title = args.title;
+          }
 
           if (args.agenticTool) {
             spawnData.agentic_tool = args.agenticTool;
@@ -349,14 +359,55 @@ export function setupMCPRoutes(app: Application): void {
             spawnData.task_id = args.taskId;
           }
 
+          // Create authenticated params for service calls (enables WebSocket broadcasting)
+          const serviceParams = {
+            user: context.userId ? { user_id: context.userId } : undefined,
+            authenticated: true,
+          };
+
           // Call spawn method on sessions service
-          const childSession = await app.service('sessions').spawn(context.sessionId, spawnData);
+          console.log(`🌱 MCP spawning subsession from ${context.sessionId.substring(0, 8)}`);
+          const childSession = await app
+            .service('sessions')
+            .spawn(context.sessionId, spawnData, serviceParams);
+          console.log(`✅ Subsession created: ${childSession.session_id.substring(0, 8)}`);
+
+          // Trigger prompt execution by directly calling the prompt service endpoint
+          // This ensures events are broadcast properly via WebSockets
+          console.log(
+            `🚀 Triggering prompt execution for subsession ${childSession.session_id.substring(0, 8)}`
+          );
+
+          // Call the prompt endpoint as a FeathersJS service (not HTTP fetch)
+          // This uses the same event emission context and ensures WebSocket broadcasting
+          const promptResponse = await app.service('/sessions/:id/prompt').create(
+            {
+              prompt: args.prompt,
+              permissionMode: childSession.permission_config?.mode || 'acceptEdits',
+              stream: true,
+            },
+            {
+              ...serviceParams,
+              route: { id: childSession.session_id },
+            }
+          );
+
+          console.log(`✅ Prompt execution started: task ${promptResponse.taskId.substring(0, 8)}`);
 
           mcpResponse = {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(childSession, null, 2),
+                text: JSON.stringify(
+                  {
+                    session: childSession,
+                    taskId: promptResponse.taskId,
+                    status: promptResponse.status,
+                    note: 'Subsession created and prompt execution started in background.',
+                  },
+                  null,
+                  2
+                ),
               },
             ],
           };
