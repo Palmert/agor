@@ -3,9 +3,15 @@
  *
  * These tests verify all 9 MCP tools work end-to-end.
  * Requires daemon to be running on localhost:3030.
+ *
+ * Run with: INTEGRATION=true pnpm test
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+
+// Skip integration tests by default - require daemon running
+const runIntegration = process.env.INTEGRATION === 'true';
+const describeIntegration = runIntegration ? describe : describe.skip;
 
 const DAEMON_URL = 'http://localhost:3030';
 let sessionToken: string;
@@ -49,7 +55,7 @@ async function callMCPTool(name: string, args: any = {}) {
   return JSON.parse(data.result!.content[0].text);
 }
 
-describe('MCP Tools - Session Tools', () => {
+describeIntegration('MCP Tools - Session Tools', () => {
   it('tools/list returns all 14 tools', async () => {
     const resp = await fetch(`${DAEMON_URL}/mcp?sessionToken=${sessionToken}`, {
       method: 'POST',
@@ -124,7 +130,7 @@ describe('MCP Tools - Session Tools', () => {
   });
 });
 
-describe('MCP Tools - Worktree Tools', () => {
+describeIntegration('MCP Tools - Worktree Tools', () => {
   it('agor_worktrees_list returns worktrees', async () => {
     const result = await callMCPTool('agor_worktrees_list', { limit: 5 });
 
@@ -152,7 +158,7 @@ describe('MCP Tools - Worktree Tools', () => {
   });
 });
 
-describe('MCP Tools - Board Tools', () => {
+describeIntegration('MCP Tools - Board Tools', () => {
   it('agor_boards_list returns boards', async () => {
     const result = await callMCPTool('agor_boards_list', { limit: 5 });
 
@@ -180,7 +186,7 @@ describe('MCP Tools - Board Tools', () => {
   });
 });
 
-describe('MCP Tools - Task Tools', () => {
+describeIntegration('MCP Tools - Task Tools', () => {
   it('agor_tasks_list returns tasks', async () => {
     const result = await callMCPTool('agor_tasks_list', { limit: 5 });
 
@@ -208,7 +214,7 @@ describe('MCP Tools - Task Tools', () => {
   });
 });
 
-describe('MCP Tools - User Tools', () => {
+describeIntegration('MCP Tools - User Tools', () => {
   it('agor_users_list returns users', async () => {
     const result = await callMCPTool('agor_users_list', { limit: 5 });
 

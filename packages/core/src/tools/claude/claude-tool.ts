@@ -29,34 +29,15 @@ import {
 import type { TokenUsage } from '../../utils/pricing';
 import type { ImportOptions, ITool, SessionData, ToolCapabilities } from '../base';
 import { loadClaudeSession } from './import/load-session';
+import {
+  createAssistantMessage,
+  createUserMessage,
+  createUserMessageFromContent,
+  extractTokenUsage,
+} from './message-builder';
 import { transcriptsToMessages } from './import/message-converter';
 import { DEFAULT_CLAUDE_MODEL } from './models';
 import { ClaudePromptService } from './prompt-service';
-
-/**
- * Safely extract and validate token usage from SDK response
- * SDK may not properly type this field, so we validate at runtime
- *
- * Note: SDK uses different field names than Anthropic API:
- * - cache_creation_input_tokens → cache_creation_tokens
- * - cache_read_input_tokens → cache_read_tokens
- */
-function extractTokenUsage(raw: unknown): TokenUsage | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-
-  const obj = raw as Record<string, unknown>;
-  return {
-    input_tokens: typeof obj.input_tokens === 'number' ? obj.input_tokens : undefined,
-    output_tokens: typeof obj.output_tokens === 'number' ? obj.output_tokens : undefined,
-    total_tokens: typeof obj.total_tokens === 'number' ? obj.total_tokens : undefined,
-    cache_read_tokens:
-      typeof obj.cache_read_input_tokens === 'number' ? obj.cache_read_input_tokens : undefined,
-    cache_creation_tokens:
-      typeof obj.cache_creation_input_tokens === 'number'
-        ? obj.cache_creation_input_tokens
-        : undefined,
-  };
-}
 
 /**
  * Service interface for creating messages via FeathersJS
@@ -216,7 +197,7 @@ export class ClaudeTool implements ITool {
     let nextIndex = existingMessages.length;
 
     // Create user message
-    const userMessage = await this.createUserMessage(sessionId, prompt, taskId, nextIndex++);
+    const userMessage = await createUserMessage(sessionId, prompt, taskId, nextIndex++, this.messagesService!);
 
     // Execute prompt via Agent SDK with streaming
     const assistantMessageIds: MessageID[] = [];
@@ -360,14 +341,16 @@ export class ClaudeTool implements ITool {
           const assistantMessageId = currentMessageId || (generateId() as MessageID);
 
           // Create complete assistant message in DB
-          await this.createAssistantMessage(
+          await createAssistantMessage(
             sessionId,
             assistantMessageId,
             event.content,
             event.toolUses,
             taskId,
             nextIndex++,
-            resolvedModel
+            resolvedModel,
+            this.messagesService!,
+            this.tasksService
           );
           assistantMessageIds.push(assistantMessageId);
 
@@ -378,12 +361,13 @@ export class ClaudeTool implements ITool {
         } else if ('role' in event && event.role === MessageRole.USER) {
           // Create user message (tool results, etc.)
           const userMessageId = generateId() as MessageID;
-          await this.createUserMessageFromContent(
+          await createUserMessageFromContent(
             sessionId,
             userMessageId,
             event.content,
             taskId,
-            nextIndex++
+            nextIndex++,
+            this.messagesService!
           );
           // Don't add to assistantMessageIds - these are user messages
         }
@@ -399,79 +383,6 @@ export class ClaudeTool implements ITool {
       contextWindow,
       contextWindowLimit,
     };
-  }
-
-  /**
-   * Create user message in database (from text prompt)
-   * @private
-   */
-  private async createUserMessage(
-    sessionId: SessionID,
-    prompt: string,
-    taskId: TaskID | undefined,
-    nextIndex: number
-  ): Promise<Message> {
-    const userMessage: Message = {
-      message_id: generateId() as MessageID,
-      session_id: sessionId,
-      type: 'user',
-      role: MessageRole.USER,
-      index: nextIndex,
-      timestamp: new Date().toISOString(),
-      content_preview: prompt.substring(0, 200),
-      content: prompt,
-      task_id: taskId,
-    };
-
-    await this.messagesService?.create(userMessage);
-    return userMessage;
-  }
-
-  /**
-   * Create user message from SDK content (tool results, etc.)
-   * @private
-   */
-  private async createUserMessageFromContent(
-    sessionId: SessionID,
-    messageId: MessageID,
-    content: Array<{
-      type: string;
-      text?: string;
-      tool_use_id?: string;
-      content?: unknown;
-      is_error?: boolean;
-    }>,
-    taskId: TaskID | undefined,
-    nextIndex: number
-  ): Promise<Message> {
-    // Extract preview from content
-    let contentPreview = '';
-    for (const block of content) {
-      if (block.type === 'text' && block.text) {
-        contentPreview = block.text.substring(0, 200);
-        break;
-      } else if (block.type === 'tool_result' && block.content) {
-        const resultText =
-          typeof block.content === 'string' ? block.content : JSON.stringify(block.content);
-        contentPreview = `Tool result: ${resultText.substring(0, 180)}`;
-        break;
-      }
-    }
-
-    const userMessage: Message = {
-      message_id: messageId,
-      session_id: sessionId,
-      type: 'user',
-      role: MessageRole.USER,
-      index: nextIndex,
-      timestamp: new Date().toISOString(),
-      content_preview: contentPreview,
-      content: content as Message['content'], // Tool result blocks
-      task_id: taskId,
-    };
-
-    await this.messagesService?.create(userMessage);
-    return userMessage;
   }
 
   /**
@@ -493,60 +404,6 @@ export class ClaudeTool implements ITool {
       console.log(`💾 Stored Agent SDK session_id in Agor session`);
       console.log(`🔍 Verify: updated.sdk_session_id = ${updated.sdk_session_id}`);
     }
-  }
-
-  /**
-   * Create complete assistant message in database
-   * @private
-   */
-  private async createAssistantMessage(
-    sessionId: SessionID,
-    messageId: MessageID,
-    content: Array<{
-      type: string;
-      text?: string;
-      id?: string;
-      name?: string;
-      input?: Record<string, unknown>;
-    }>,
-    toolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> | undefined,
-    taskId: TaskID | undefined,
-    nextIndex: number,
-    resolvedModel?: string
-  ): Promise<Message> {
-    // Extract text content for preview
-    const textBlocks = content.filter(b => b.type === 'text').map(b => b.text || '');
-    const fullTextContent = textBlocks.join('');
-    const contentPreview = fullTextContent.substring(0, 200);
-
-    const message: Message = {
-      message_id: messageId,
-      session_id: sessionId,
-      type: 'assistant',
-      role: MessageRole.ASSISTANT,
-      index: nextIndex,
-      timestamp: new Date().toISOString(),
-      content_preview: contentPreview,
-      content: content as Message['content'],
-      tool_uses: toolUses,
-      task_id: taskId,
-      metadata: {
-        model: resolvedModel || DEFAULT_CLAUDE_MODEL,
-        tokens: {
-          input: 0, // TODO: Extract from SDK
-          output: 0,
-        },
-      },
-    };
-
-    await this.messagesService?.create(message);
-
-    // If task exists, update it with resolved model
-    if (taskId && resolvedModel && this.tasksService) {
-      await this.tasksService.patch(taskId, { model: resolvedModel });
-    }
-
-    return message;
   }
 
   /**
@@ -585,7 +442,7 @@ export class ClaudeTool implements ITool {
     let nextIndex = existingMessages.length;
 
     // Create user message
-    const userMessage = await this.createUserMessage(sessionId, prompt, taskId, nextIndex++);
+    const userMessage = await createUserMessage(sessionId, prompt, taskId, nextIndex++, this.messagesService!);
 
     // Execute prompt via Agent SDK
     const assistantMessageIds: MessageID[] = [];
@@ -663,14 +520,16 @@ export class ClaudeTool implements ITool {
       // Handle complete messages only
       if (event.type === 'complete' && event.content) {
         const messageId = generateId() as MessageID;
-        await this.createAssistantMessage(
+        await createAssistantMessage(
           sessionId,
           messageId,
           event.content,
           event.toolUses,
           taskId,
           nextIndex++,
-          resolvedModel
+          resolvedModel,
+          this.messagesService!,
+          this.tasksService
         );
         assistantMessageIds.push(messageId);
       }

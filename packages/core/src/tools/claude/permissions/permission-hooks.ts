@@ -1,0 +1,324 @@
+/**
+ * Permission Hooks for Claude Agent SDK
+ *
+ * Handles PreToolUse hook for custom permission UI via WebSocket.
+ * Provides serialized permission checks to prevent duplicate prompts.
+ */
+
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import type {
+  HookJSONOutput,
+  PreToolUseHookInput,
+} from '@anthropic-ai/claude-agent-sdk/sdk';
+import type { MessagesRepository } from '../../../db/repositories/messages';
+import type { MCPServerRepository } from '../../../db/repositories/mcp-servers';
+import type { SessionMCPServerRepository } from '../../../db/repositories/session-mcp-servers';
+import type { SessionRepository } from '../../../db/repositories/sessions';
+import type { WorktreeRepository } from '../../../db/repositories/worktrees';
+import { generateId } from '../../../lib/ids';
+import type { PermissionService } from '../../../permissions/permission-service';
+import type { Message, MessageID, SessionID, TaskID } from '../../../types';
+import { MessageRole, PermissionStatus, TaskStatus } from '../../../types';
+import type { MessagesService, SessionsService, TasksService } from '../claude-tool';
+
+/**
+ * Update project-level permissions in .claude/settings.json
+ */
+export async function updateProjectSettings(
+  cwd: string,
+  changes: {
+    allowTools?: string[];
+    denyTools?: string[];
+  }
+) {
+  const settingsPath = path.join(cwd, '.claude', 'settings.json');
+
+  // Read existing settings or create default structure
+  // biome-ignore lint/suspicious/noExplicitAny: Settings JSON structure is dynamic
+  let settings: any = {};
+  try {
+    const content = await fs.readFile(settingsPath, 'utf-8');
+    settings = JSON.parse(content);
+  } catch {
+    // File doesn't exist, create default structure
+    settings = { permissions: { allow: { tools: [] } } };
+  }
+
+  // Ensure permissions structure exists
+  if (!settings.permissions) settings.permissions = {};
+  if (!settings.permissions.allow) settings.permissions.allow = {};
+  if (!settings.permissions.allow.tools) settings.permissions.allow.tools = [];
+
+  // Apply changes
+  if (changes.allowTools) {
+    settings.permissions.allow.tools = [
+      ...new Set([...settings.permissions.allow.tools, ...changes.allowTools]),
+    ];
+  }
+  if (changes.denyTools) {
+    if (!settings.permissions.deny) settings.permissions.deny = [];
+    settings.permissions.deny = [
+      ...new Set([...settings.permissions.deny, ...changes.denyTools]),
+    ];
+  }
+
+  // Ensure .claude directory exists
+  const claudeDir = path.join(cwd, '.claude');
+  try {
+    await fs.mkdir(claudeDir, { recursive: true });
+  } catch {}
+
+  // Write updated settings
+  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+}
+
+/**
+ * Create PreToolUse hook for permission handling
+ *
+ * This hook intercepts tool calls and shows a custom permission UI via WebSocket.
+ * Serializes permission checks per session to prevent duplicate prompts.
+ */
+export function createPreToolUseHook(
+  sessionId: SessionID,
+  taskId: TaskID,
+  deps: {
+    permissionService: PermissionService;
+    tasksService: TasksService;
+    sessionsRepo: SessionRepository;
+    messagesRepo: MessagesRepository;
+    messagesService?: MessagesService;
+    sessionsService?: SessionsService;
+    worktreesRepo?: WorktreeRepository;
+    permissionLocks: Map<SessionID, Promise<void>>;
+  }
+) {
+  return async (
+    input: PreToolUseHookInput,
+    toolUseID: string | undefined,
+    options: { signal: AbortSignal }
+  ): Promise<HookJSONOutput> => {
+    // Track lock release function for finally block
+    let releaseLock: (() => void) | undefined;
+
+    try {
+      // STEP 1: Wait for any pending permission check to finish (queue serialization)
+      // This prevents duplicate prompts for concurrent tool calls
+      const existingLock = deps.permissionLocks.get(sessionId);
+      if (existingLock) {
+        console.log(
+          `⏳ Waiting for pending permission check to complete (session ${sessionId.substring(0, 8)})`
+        );
+        await existingLock;
+        console.log(`✅ Permission check complete, rechecking DB...`);
+      }
+
+      // STEP 2: Check session-specific permission overrides
+      // IMPORTANT: Re-fetch after waiting for lock - previous hook may have saved permission
+      const session = await deps.sessionsRepo.findById(sessionId);
+
+      if (session?.permission_config?.allowedTools?.includes(input.tool_name)) {
+        console.log(`✅ Tool ${input.tool_name} allowed by session config (after queue wait)`);
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+            permissionDecisionReason: 'Allowed by session config',
+          },
+        };
+      }
+
+      // STEP 3: No existing permission - create lock and show prompt
+      console.log(
+        `🔒 No permission found for ${input.tool_name}, creating lock and prompting user...`
+      );
+      const newLock = new Promise<void>(resolve => {
+        releaseLock = resolve;
+      });
+      deps.permissionLocks.set(sessionId, newLock);
+
+      // Generate request ID
+      const requestId = generateId();
+      const timestamp = new Date().toISOString();
+
+      // Get current message index for this session
+      const existingMessages = await deps.messagesRepo.findBySessionId(sessionId);
+      const nextIndex = existingMessages.length;
+
+      // Create permission request message
+      console.log(`🔒 Creating permission request message for ${input.tool_name}`, {
+        request_id: requestId,
+        task_id: taskId,
+        index: nextIndex,
+      });
+
+      const permissionMessage: Message = {
+        message_id: generateId() as MessageID,
+        session_id: sessionId,
+        task_id: taskId,
+        type: 'permission_request',
+        role: MessageRole.SYSTEM,
+        index: nextIndex,
+        timestamp,
+        content_preview: `Permission required: ${input.tool_name}`,
+        content: {
+          request_id: requestId,
+          tool_name: input.tool_name,
+          tool_input: input.tool_input as Record<string, unknown>,
+          tool_use_id: toolUseID,
+          status: PermissionStatus.PENDING,
+        },
+      };
+
+      try {
+        if (deps.messagesService) {
+          await deps.messagesService.create(permissionMessage);
+          console.log(`✅ Permission request message created successfully`);
+        }
+      } catch (createError) {
+        console.error(`❌ CRITICAL: Failed to create permission request message:`, createError);
+        throw createError;
+      }
+
+      // Update task status to 'awaiting_permission'
+      try {
+        await deps.tasksService.patch(taskId, {
+          status: TaskStatus.AWAITING_PERMISSION,
+        });
+        console.log(`✅ Task ${taskId} updated to awaiting_permission`);
+      } catch (patchError) {
+        console.error(`❌ CRITICAL: Failed to patch task ${taskId}:`, patchError);
+        throw patchError;
+      }
+
+      // Emit WebSocket event for UI (broadcasts to ALL viewers)
+      deps.permissionService.emitRequest(sessionId, {
+        requestId,
+        taskId,
+        toolName: input.tool_name,
+        toolInput: input.tool_input as Record<string, unknown>,
+        toolUseID,
+        timestamp,
+      });
+
+      // Wait for UI decision (Promise pauses SDK execution)
+      const decision = await deps.permissionService.waitForDecision(
+        requestId,
+        taskId,
+        options.signal
+      );
+
+      // Update permission request message with approval/denial
+      if (deps.messagesService) {
+        const baseContent =
+          typeof permissionMessage.content === 'object' &&
+          !Array.isArray(permissionMessage.content)
+            ? permissionMessage.content
+            : {};
+        // biome-ignore lint/suspicious/noExplicitAny: FeathersJS service has patch method but type definition is incomplete
+        await (deps.messagesService as any).patch(permissionMessage.message_id, {
+          content: {
+            ...(baseContent as Record<string, unknown>),
+            status: decision.allow ? PermissionStatus.APPROVED : PermissionStatus.DENIED,
+            scope: decision.remember ? decision.scope : undefined,
+            approved_by: decision.decidedBy,
+            approved_at: new Date().toISOString(),
+          },
+        });
+        console.log(
+          `✅ Permission request message updated: ${decision.allow ? 'approved' : 'denied'}`
+        );
+      }
+
+      // Update task status
+      await deps.tasksService.patch(taskId, {
+        status: decision.allow ? TaskStatus.RUNNING : TaskStatus.FAILED,
+      });
+
+      // Persist decision if user clicked "Remember"
+      if (decision.remember) {
+        // RE-FETCH session to get latest data (avoid stale closure)
+        const freshSession = await deps.sessionsRepo.findById(sessionId);
+        if (!freshSession) {
+          return {
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              permissionDecision: decision.allow ? 'allow' : 'deny',
+              permissionDecisionReason: decision.reason,
+            },
+          };
+        }
+
+        if (decision.scope === 'session') {
+          // Update session-level permissions via FeathersJS service (broadcasts WebSocket events)
+          const currentAllowed = freshSession.permission_config?.allowedTools || [];
+
+          // IMPORTANT: Use FeathersJS service (if available) for WebSocket broadcasting
+          // Fall back to repository if service not available (e.g., in tests)
+          const newAllowedTools = [...currentAllowed, input.tool_name];
+          const updateData = {
+            permission_config: {
+              allowedTools: newAllowedTools,
+            },
+          };
+
+          if (deps.sessionsService) {
+            await deps.sessionsService.patch(sessionId, updateData);
+          } else {
+            await deps.sessionsRepo.update(sessionId, updateData);
+          }
+        } else if (decision.scope === 'project') {
+          // Update project-level permissions in .claude/settings.json
+          // Get worktree path to determine project directory
+          if (freshSession.worktree_id && deps.worktreesRepo) {
+            const worktree = await deps.worktreesRepo.findById(freshSession.worktree_id);
+            if (worktree) {
+              await updateProjectSettings(worktree.path, {
+                allowTools: [input.tool_name],
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: decision.allow ? 'allow' : 'deny',
+          permissionDecisionReason: decision.reason,
+        },
+      };
+    } catch (error) {
+      // On any error in the permission flow, mark task as failed
+      console.error('PreToolUse hook error:', error);
+
+      try {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const timestamp = new Date().toISOString();
+        await deps.tasksService.patch(taskId, {
+          status: TaskStatus.FAILED,
+          report: `Error: ${errorMessage}\nTimestamp: ${timestamp}`,
+        });
+      } catch (updateError) {
+        console.error('Failed to update task status:', updateError);
+      }
+
+      // Return deny to SDK so tool doesn't execute
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: `Permission hook failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      };
+    } finally {
+      // STEP 4: Always release the lock when done (success or error)
+      // This allows queued hooks to proceed
+      if (releaseLock) {
+        releaseLock();
+        deps.permissionLocks.delete(sessionId);
+        console.log(`🔓 Released permission lock for session ${sessionId.substring(0, 8)}`);
+      }
+    }
+  };
+}

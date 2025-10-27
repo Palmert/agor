@@ -34,6 +34,7 @@ export interface SettingsModalProps {
   users: User[];
   mcpServers: MCPServer[];
   activeTab?: string; // Control which tab is shown when modal opens
+  onTabChange?: (tabKey: string) => void;
   onCreateBoard?: (board: Partial<Board>) => void;
   onUpdateBoard?: (boardId: string, updates: Partial<Board>) => void;
   onDeleteBoard?: (boardId: string) => void;
@@ -76,6 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   users,
   mcpServers,
   activeTab = 'boards',
+  onTabChange,
   onCreateBoard,
   onUpdateBoard,
   onDeleteBoard,
@@ -135,6 +137,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     >
       <Tabs
         activeKey={activeTab}
+        onChange={onTabChange}
         items={[
           {
             key: 'boards',

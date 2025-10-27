@@ -147,6 +147,11 @@ export class TaskRepository implements BaseRepository<Task, Partial<Task>> {
    */
   async createMany(taskList: Partial<Task>[]): Promise<Task[]> {
     try {
+      // Handle empty array
+      if (taskList.length === 0) {
+        return [];
+      }
+
       const inserts = taskList.map(task => this.taskToInsert(task));
 
       // Bulk insert all tasks

@@ -514,6 +514,7 @@ export const App: React.FC<AppProps> = ({
         users={users}
         mcpServers={mcpServers}
         activeTab={effectiveSettingsTab}
+        onTabChange={setSettingsActiveTab}
         onCreateBoard={onCreateBoard}
         onUpdateBoard={onUpdateBoard}
         onDeleteBoard={onDeleteBoard}

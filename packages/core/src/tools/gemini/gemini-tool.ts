@@ -330,7 +330,7 @@ export class GeminiTool implements ITool {
       }
 
       // Handle complete messages only
-      if (event.type === 'complete' && event.content) {
+      if (event.type === 'complete' && event.content && event.content.length > 0) {
         const messageId = generateId() as MessageID;
         await this.createAssistantMessage(
           sessionId,

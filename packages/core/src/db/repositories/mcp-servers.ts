@@ -83,8 +83,8 @@ export class MCPServerRepository
 
     return {
       mcp_server_id: serverId as string,
-      created_at: new Date(now),
-      updated_at: new Date(now),
+      created_at: 'created_at' in data && data.created_at ? new Date(data.created_at) : new Date(now),
+      updated_at: 'updated_at' in data && data.updated_at ? new Date(data.updated_at) : new Date(now),
 
       // Materialized columns
       name: data.name!,

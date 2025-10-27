@@ -1,0 +1,654 @@
+/**
+ * Tests for Agor API Client
+ *
+ * Tests our API wrapper utilities (createClient, isDaemonRunning).
+ * Does NOT test FeathersJS internals, Socket.io, or HTTP libraries.
+ */
+
+import { beforeEach, describe, expect, it, vi, type MockedFunction } from 'vitest';
+import type { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
+import { createClient, isDaemonRunning, type AgorClient } from './index';
+import authClient from '@feathersjs/authentication-client';
+
+// Mock socket.io-client
+vi.mock('socket.io-client', () => ({
+  default: vi.fn(),
+}));
+
+// Mock @feathersjs/feathers
+vi.mock('@feathersjs/feathers', () => ({
+  feathers: vi.fn(() => ({
+    configure: vi.fn(function (this: any, plugin: any) {
+      plugin.call(this);
+      return this;
+    }),
+  })),
+}));
+
+// Mock @feathersjs/socketio-client
+vi.mock('@feathersjs/socketio-client', () => ({
+  default: vi.fn(() => function (this: any) {
+    // socketio plugin configuration
+  }),
+}));
+
+// Mock @feathersjs/authentication-client
+vi.mock('@feathersjs/authentication-client', () => ({
+  default: vi.fn(() => function (this: any) {
+    // auth plugin configuration
+  }),
+}));
+
+/**
+ * Helper: Create mock socket instance
+ */
+function createMockSocket(): Socket {
+  return {
+    on: vi.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    emit: vi.fn(),
+    removeListener: vi.fn(),
+    connected: false,
+    disconnected: true,
+  } as unknown as Socket;
+}
+
+describe('createClient', () => {
+  let mockSocket: Socket;
+  let ioMock: MockedFunction<any>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Setup socket.io mock
+    mockSocket = createMockSocket();
+    ioMock = io as unknown as MockedFunction<any>;
+    ioMock.mockReturnValue(mockSocket);
+  });
+
+  describe('basic initialization', () => {
+    it('should create client with default URL', () => {
+      const client = createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        'http://localhost:3030',
+        expect.objectContaining({
+          autoConnect: true,
+        })
+      );
+      expect(client.io).toBe(mockSocket);
+    });
+
+    it('should create client with custom URL', () => {
+      createClient('http://example.com:4000');
+
+      expect(ioMock).toHaveBeenCalledWith(
+        'http://example.com:4000',
+        expect.objectContaining({
+          autoConnect: true,
+        })
+      );
+    });
+
+    it('should respect autoConnect parameter', () => {
+      createClient('http://localhost:3030', false);
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          autoConnect: false,
+        })
+      );
+    });
+
+    it('should default autoConnect to true', () => {
+      createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          autoConnect: true,
+        })
+      );
+    });
+
+    it('should expose socket instance on client', () => {
+      const client = createClient();
+
+      expect(client.io).toBeDefined();
+      expect(client.io).toBe(mockSocket);
+    });
+  });
+
+  describe('socket configuration', () => {
+    it('should configure reconnection settings', () => {
+      createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 2000,
+          reconnectionAttempts: 2,
+        })
+      );
+    });
+
+    it('should configure timeout', () => {
+      createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          timeout: 2000,
+        })
+      );
+    });
+
+    it('should configure transports with websocket preferred', () => {
+      createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          transports: ['websocket', 'polling'],
+        })
+      );
+    });
+
+    it('should enable closeOnBeforeunload', () => {
+      createClient();
+
+      expect(ioMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          closeOnBeforeunload: true,
+        })
+      );
+    });
+  });
+
+  describe('verbose logging', () => {
+    it('should attach connection error handler when verbose', () => {
+      createClient('http://localhost:3030', true, { verbose: true });
+
+      expect(mockSocket.on).toHaveBeenCalledWith('connect_error', expect.any(Function));
+      expect(mockSocket.on).toHaveBeenCalledWith('connect', expect.any(Function));
+    });
+
+    it('should not attach handlers when verbose is false', () => {
+      createClient('http://localhost:3030', true, { verbose: false });
+
+      expect(mockSocket.on).not.toHaveBeenCalled();
+    });
+
+    it('should not attach handlers when verbose not specified', () => {
+      createClient();
+
+      expect(mockSocket.on).not.toHaveBeenCalled();
+    });
+
+    it('should log connection error on first attempt', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      createClient('http://localhost:3030', true, { verbose: true });
+
+      // Get the connect_error handler
+      const errorHandler = (mockSocket.on as MockedFunction<any>).mock.calls.find(
+        ([event]) => event === 'connect_error'
+      )?.[1];
+
+      expect(errorHandler).toBeDefined();
+
+      // Simulate first connection error
+      if (errorHandler && typeof errorHandler === 'function') {
+        errorHandler(new Error('Connection failed'));
+      }
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('✗ Daemon not running at http://localhost:3030')
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Retrying connection (1/2)...')
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should log retry count on subsequent errors', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      createClient('http://localhost:3030', true, { verbose: true });
+
+      const errorHandler = (mockSocket.on as MockedFunction<any>).mock.calls.find(
+        ([event]) => event === 'connect_error'
+      )?.[1];
+
+      // Simulate two connection errors
+      if (errorHandler && typeof errorHandler === 'function') {
+        errorHandler(new Error('Connection failed'));
+        errorHandler(new Error('Connection failed'));
+      }
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Retry 2/2 failed'));
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should log successful connection after retry', () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      createClient('http://localhost:3030', true, { verbose: true });
+
+      const errorHandler = (mockSocket.on as MockedFunction<any>).mock.calls.find(
+        ([event]) => event === 'connect_error'
+      )?.[1];
+      const connectHandler = (mockSocket.on as MockedFunction<any>).mock.calls.find(
+        ([event]) => event === 'connect'
+      )?.[1];
+
+      // Simulate error then successful connection
+      if (errorHandler && typeof errorHandler === 'function') {
+        errorHandler(new Error('Connection failed'));
+      }
+      if (connectHandler && typeof connectHandler === 'function') {
+        connectHandler();
+      }
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('✓ Connected to daemon');
+
+      consoleLogSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should not log on first connect without errors', () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      createClient('http://localhost:3030', true, { verbose: true });
+
+      const connectHandler = (mockSocket.on as MockedFunction<any>).mock.calls.find(
+        ([event]) => event === 'connect'
+      )?.[1];
+
+      // Simulate successful first connection (no prior errors)
+      if (connectHandler && typeof connectHandler === 'function') {
+        connectHandler();
+      }
+
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+
+      consoleLogSpy.mockRestore();
+    });
+  });
+
+  describe('authentication configuration', () => {
+    it('should configure authentication with localStorage in browser', () => {
+      // Mock browser environment
+      const mockLocalStorage = {
+        getItem: vi.fn(),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        length: 0,
+        key: vi.fn(),
+      };
+
+      (globalThis as any).localStorage = mockLocalStorage;
+
+      const authMock = authClient as unknown as MockedFunction<any>;
+
+      createClient();
+
+      expect(authMock).toHaveBeenCalledWith({ storage: mockLocalStorage });
+
+      // Cleanup
+      delete (globalThis as any).localStorage;
+    });
+
+    it('should configure authentication without storage in Node.js', () => {
+      // Ensure no localStorage
+      delete (globalThis as any).localStorage;
+
+      const authMock = authClient as unknown as MockedFunction<any>;
+
+      createClient();
+
+      expect(authMock).toHaveBeenCalledWith({ storage: undefined });
+    });
+
+    it('should handle globalThis without localStorage gracefully', () => {
+      const globalThisBackup = globalThis;
+
+      // Create globalThis without localStorage
+      const mockGlobalThis = {} as typeof globalThis;
+      Object.setPrototypeOf(mockGlobalThis, Object.getPrototypeOf(globalThis));
+
+      expect(() => createClient()).not.toThrow();
+    });
+  });
+
+  describe('return value type', () => {
+    it('should return AgorClient with socket exposed', () => {
+      const client = createClient();
+
+      expect(client).toBeDefined();
+      expect(client.io).toBeDefined();
+      expect(client.io).toBe(mockSocket);
+    });
+
+    it('should return client with configure method', () => {
+      const client = createClient();
+
+      // Client is created by mocked feathers() which provides configure
+      expect(client.configure).toBeDefined();
+    });
+  });
+
+  describe('URL variations', () => {
+    it('should handle URLs with trailing slash', () => {
+      createClient('http://localhost:3030/');
+
+      expect(ioMock).toHaveBeenCalledWith('http://localhost:3030/', expect.any(Object));
+    });
+
+    it('should handle HTTPS URLs', () => {
+      createClient('https://example.com:3030');
+
+      expect(ioMock).toHaveBeenCalledWith('https://example.com:3030', expect.any(Object));
+    });
+
+    it('should handle URLs with non-default ports', () => {
+      createClient('http://localhost:8888');
+
+      expect(ioMock).toHaveBeenCalledWith('http://localhost:8888', expect.any(Object));
+    });
+
+    it('should handle URLs with hostnames', () => {
+      createClient('http://my-daemon.local:3030');
+
+      expect(ioMock).toHaveBeenCalledWith('http://my-daemon.local:3030', expect.any(Object));
+    });
+
+    it('should handle IP addresses', () => {
+      createClient('http://192.168.1.100:3030');
+
+      expect(ioMock).toHaveBeenCalledWith('http://192.168.1.100:3030', expect.any(Object));
+    });
+  });
+
+  describe('multiple client creation', () => {
+    it('should create independent clients', () => {
+      const mockSocket1 = createMockSocket();
+      const mockSocket2 = createMockSocket();
+      ioMock.mockReturnValueOnce(mockSocket1).mockReturnValueOnce(mockSocket2);
+
+      const client1 = createClient('http://localhost:3030');
+      const client2 = createClient('http://localhost:4000');
+
+      expect(client1.io).not.toBe(client2.io);
+      expect(ioMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('should allow different autoConnect settings', () => {
+      createClient('http://localhost:3030', true);
+      createClient('http://localhost:3030', false);
+
+      expect(ioMock).toHaveBeenNthCalledWith(
+        1,
+        expect.any(String),
+        expect.objectContaining({ autoConnect: true })
+      );
+      expect(ioMock).toHaveBeenNthCalledWith(
+        2,
+        expect.any(String),
+        expect.objectContaining({ autoConnect: false })
+      );
+    });
+  });
+});
+
+describe('isDaemonRunning', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('successful connection', () => {
+    it('should return true when daemon is reachable', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3030/health',
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should use custom URL', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await isDaemonRunning('http://example.com:4000');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://example.com:4000/health',
+        expect.any(Object)
+      );
+    });
+
+    it('should use default URL when not provided', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await isDaemonRunning();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3030/health',
+        expect.any(Object)
+      );
+    });
+
+    it('should set timeout to 1000ms', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await isDaemonRunning();
+
+      const call = (global.fetch as MockedFunction<any>).mock.calls[0];
+      const options = call?.[1] as RequestInit | undefined;
+      const signal = options?.signal;
+
+      // Verify signal is an AbortSignal (timeout configured)
+      expect(signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  describe('failed connection', () => {
+    it('should return false when daemon returns non-ok response', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when fetch throws network error', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false on timeout', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('The operation was aborted'));
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false on connection refused', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false on DNS resolution failure', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
+
+      const result = await isDaemonRunning();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('HTTP status codes', () => {
+    it('should return true for 200 OK', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+      expect(await isDaemonRunning()).toBe(true);
+    });
+
+    it('should return false for 404 Not Found', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+      expect(await isDaemonRunning()).toBe(false);
+    });
+
+    it('should return false for 500 Internal Server Error', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+      expect(await isDaemonRunning()).toBe(false);
+    });
+
+    it('should return false for 503 Service Unavailable', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+      expect(await isDaemonRunning()).toBe(false);
+    });
+
+    it('should return true for 204 No Content', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+      expect(await isDaemonRunning()).toBe(true);
+    });
+  });
+
+  describe('URL variations', () => {
+    it('should handle URLs with trailing slash', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+      await isDaemonRunning('http://localhost:3030/');
+
+      // Should normalize the URL (double slash handled by fetch)
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3030//health',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle HTTPS URLs', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+      await isDaemonRunning('https://example.com:3030');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://example.com:3030/health',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle non-standard ports', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+      await isDaemonRunning('http://localhost:9999');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:9999/health',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle IP addresses', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+      await isDaemonRunning('http://192.168.1.100:3030');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://192.168.1.100:3030/health',
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should not throw on fetch error', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('Catastrophic failure'));
+
+      await expect(isDaemonRunning()).resolves.not.toThrow();
+    });
+
+    it('should handle undefined response', async () => {
+      global.fetch = vi.fn().mockResolvedValue(undefined);
+
+      const result = await isDaemonRunning();
+
+      // undefined response should cause an error and return false
+      expect(result).toBe(false);
+    });
+
+    it('should handle malformed response', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: 'true' } as any);
+
+      const result = await isDaemonRunning();
+
+      // Malformed 'ok' field - string 'true' is truthy, returns 'true' string
+      expect(result).toBe('true');
+    });
+  });
+
+  describe('concurrency', () => {
+    it('should handle multiple concurrent checks', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+      const results = await Promise.all([
+        isDaemonRunning(),
+        isDaemonRunning(),
+        isDaemonRunning(),
+      ]);
+
+      expect(results).toEqual([true, true, true]);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle mixed success and failure', async () => {
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const results = await Promise.all([
+        isDaemonRunning(),
+        isDaemonRunning(),
+        isDaemonRunning(),
+      ]);
+
+      expect(results).toEqual([true, false, true]);
+    });
+  });
+});

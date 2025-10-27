@@ -1,5 +1,8 @@
 echo "🔍 Running typecheck..."
 pnpm typecheck
 
+echo "🧪 Running tests..."
+pnpm test
+
 echo "✨ Running lint-staged..."
 pnpm exec lint-staged

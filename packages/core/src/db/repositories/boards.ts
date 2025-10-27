@@ -37,7 +37,7 @@ export class BoardRepository implements BaseRepository<Board, Partial<Board>> {
     return {
       board_id: row.board_id as UUID,
       name: row.name,
-      slug: row.slug || undefined,
+      slug: row.slug !== null ? row.slug : undefined,
       created_at: new Date(row.created_at).toISOString(),
       last_updated: row.updated_at
         ? new Date(row.updated_at).toISOString()
@@ -57,7 +57,7 @@ export class BoardRepository implements BaseRepository<Board, Partial<Board>> {
     return {
       board_id: boardId,
       name: board.name ?? 'Untitled Board',
-      slug: board.slug ?? null,
+      slug: board.slug !== undefined ? board.slug : null,
       created_at: new Date(board.created_at ?? now),
       updated_at: board.last_updated ? new Date(board.last_updated) : new Date(now),
       created_by: board.created_by ?? 'anonymous',
