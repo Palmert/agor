@@ -43,38 +43,18 @@ agor open
         <p align="center"><em style="opacity: 0.5;">Spatial canvas with worktrees and zones</em></p>
       </td>
       <td width="50%">
-        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/zone_trigger_modal.png" alt="Zone Trigger Modal"/>
-        <p align="center"><em style="opacity: 0.5;">Zone trigger modal on session drop</em></p>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
-        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/zone_trigger_config.png" alt="Zone Configuration"/>
-        <p align="center"><em style="opacity: 0.5;">Zone trigger configuration</em></p>
-      </td>
-      <td width="50%">
-        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/env_configuration.png" alt="Environment Configuration"/>
-        <p align="center"><em style="opacity: 0.5;">Worktree environment setup</em></p>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
         <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/Convo.gif" alt="AI Conversation in Action"/>
         <p align="center"><em style="opacity: 0.5;">Rich web UI for AI conversations</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/Settings.gif" alt="Settings and Configuration"/>
+        <p align="center"><em style="opacity: 0.5;">MCP servers and worktree management</em></p>
       </td>
       <td width="50%">
         <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/Social.gif" alt="Real-time Multiplayer"/>
         <p align="center"><em style="opacity: 0.5;">Live collaboration with cursors and comments</em></p>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
-        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/baked_in_terminal.png" alt="Built-in Terminal"/>
-        <p align="center"><em style="opacity: 0.5;">Built-in terminal with worktree context</em></p>
-      </td>
-      <td width="50%">
-        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/onboarding.png" alt="Onboarding Experience"/>
-        <p align="center"><em style="opacity: 0.5;">Welcome screen showing team status</em></p>
       </td>
     </tr>
   </table>
@@ -163,6 +143,60 @@ See [Architecture Guide](https://mistercrunch.github.io/agor/guide/architecture)
 - Coordinate agentic work like a multiplayer RTS.
 - Watch teammates or agents move across tasks live.
 - Cluster sessions, delegate, pivot, and iterate together.
+
+---
+
+## Screenshots
+
+<div align="center">
+  <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/hero.png" alt="Agor Board" style="width: 100%; border-radius: 8px; margin-bottom: 24px;" />
+  <p style="opacity: 0.5;"><em>Multiplayer spatial canvas with zones, worktrees, and real-time collaboration</em></p>
+</div>
+
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/conversation_full_page.png" alt="Conversation View"/>
+        <p align="center"><em style="opacity: 0.5;">Task-centric conversation UI</em></p>
+      </td>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/settings_modal.png" alt="Settings Modal"/>
+        <p align="center"><em style="opacity: 0.5;">MCP server and worktree management</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/zone_trigger_modal.png" alt="Zone Trigger Modal"/>
+        <p align="center"><em style="opacity: 0.5;">Zone trigger modal on session drop</em></p>
+      </td>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/zone_trigger_config.png" alt="Zone Configuration"/>
+        <p align="center"><em style="opacity: 0.5;">Zone trigger configuration</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/env_configuration.png" alt="Environment Configuration"/>
+        <p align="center"><em style="opacity: 0.5;">Worktree environment setup</em></p>
+      </td>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/create_session_modal.png" alt="Create Session Modal"/>
+        <p align="center"><em style="opacity: 0.5;">Session creation with agent selection</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/baked_in_terminal.png" alt="Built-in Terminal"/>
+        <p align="center"><em style="opacity: 0.5;">Built-in terminal with worktree context</em></p>
+      </td>
+      <td width="50%">
+        <img src="https://github.com/mistercrunch/agor/releases/download/v0.3.15/onboarding.png" alt="Onboarding Experience"/>
+        <p align="center"><em style="opacity: 0.5;">Welcome screen showing team status</em></p>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
