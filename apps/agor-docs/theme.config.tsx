@@ -78,7 +78,6 @@ const config: DocsThemeConfig = {
     saturation: 55,
   },
 
-  darkMode: false, // Disable theme switcher
   nextThemes: {
     defaultTheme: 'dark',
     forcedTheme: 'dark', // Force dark mode
