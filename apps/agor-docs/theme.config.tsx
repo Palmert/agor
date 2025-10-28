@@ -65,9 +65,7 @@ const config: DocsThemeConfig = {
         <meta property="og:title" content={pageTitle} />
         <meta
           property="og:description"
-          content={
-            frontMatter.description || 'Next-gen agent orchestration for AI-assisted development'
-          }
+          content={frontMatter.description || 'Next-gen agent orchestration for AI coding'}
         />
         <meta name="theme-color" content="#2e9a92" />
         <link rel="icon" type="image/png" href={`${basePath}/favicon.png`} />
