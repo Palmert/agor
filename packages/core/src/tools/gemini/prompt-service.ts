@@ -25,6 +25,7 @@ import {
 import type { Content, Part } from '@google/genai';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import type { WorktreeRepository } from '../../db/repositories/worktrees';
 import type { PermissionMode, SessionID, TaskID } from '../../types';
 import { DEFAULT_GEMINI_MODEL, type GeminiModel } from './models';
 
@@ -78,7 +79,8 @@ export class GeminiPromptService {
   constructor(
     _messagesRepo: MessagesRepository,
     private sessionsRepo: SessionRepository,
-    _apiKey?: string
+    _apiKey?: string,
+    private worktreesRepo?: WorktreeRepository
   ) {}
 
   /**
@@ -408,7 +410,7 @@ export class GeminiPromptService {
       // Find session file matching pattern: session-*-{sessionId-first8}.json
       const sessionIdShort = sessionId.slice(0, 8);
       const files = await fs.readdir(chatsDir);
-      const sessionFile = files.find((f) => f.includes(sessionIdShort) && f.endsWith('.json'));
+      const sessionFile = files.find(f => f.includes(sessionIdShort) && f.endsWith('.json'));
 
       if (!sessionFile) {
         console.debug(`No session file found for ${sessionId} (looking for *${sessionIdShort}*)`);
@@ -458,9 +460,32 @@ export class GeminiPromptService {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    // TODO: Update to use worktree path after worktree-centric refactor
-    // Determine working directory
-    const workingDirectory = process.cwd(); // Temporary fallback
+    // Determine working directory from worktree (worktree-centric architecture)
+    let workingDirectory = process.cwd();
+    if (session.worktree_id && this.worktreesRepo) {
+      try {
+        const worktree = await this.worktreesRepo.findById(session.worktree_id);
+        if (worktree) {
+          workingDirectory = worktree.path;
+          console.log(`✅ Using worktree path as cwd: ${workingDirectory}`);
+        } else {
+          console.warn(
+            `⚠️  Session ${sessionId} references non-existent worktree ${session.worktree_id}, using process.cwd(): ${workingDirectory}`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch worktree ${session.worktree_id}:`, error);
+        console.warn(`   Falling back to process.cwd(): ${workingDirectory}`);
+      }
+    } else if (!this.worktreesRepo) {
+      console.warn(
+        `⚠️  GeminiPromptService initialized without worktreesRepo, using process.cwd(): ${workingDirectory}`
+      );
+    } else {
+      console.warn(
+        `⚠️  Session ${sessionId} has no worktree_id, using process.cwd(): ${workingDirectory}`
+      );
+    }
 
     // Get model from session config
     const model = (session.model_config?.model as GeminiModel) || DEFAULT_GEMINI_MODEL;

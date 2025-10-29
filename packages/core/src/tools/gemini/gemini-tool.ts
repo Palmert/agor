@@ -13,6 +13,7 @@
 import { execSync } from 'node:child_process';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionRepository } from '../../db/repositories/sessions';
+import type { WorktreeRepository } from '../../db/repositories/worktrees';
 import { generateId } from '../../lib/ids';
 import {
   type Message,
@@ -38,10 +39,16 @@ export class GeminiTool implements ITool {
     sessionsRepo?: SessionRepository,
     apiKey?: string,
     private messagesService?: MessagesService,
-    private tasksService?: TasksService
+    private tasksService?: TasksService,
+    worktreesRepo?: WorktreeRepository
   ) {
     if (messagesRepo && sessionsRepo) {
-      this.promptService = new GeminiPromptService(messagesRepo, sessionsRepo, apiKey);
+      this.promptService = new GeminiPromptService(
+        messagesRepo,
+        sessionsRepo,
+        apiKey,
+        worktreesRepo
+      );
     }
   }
 
@@ -235,7 +242,7 @@ export class GeminiTool implements ITool {
     resolvedModel?: string
   ): Promise<Message> {
     // Extract text content for preview
-    const textBlocks = content.filter((b) => b.type === 'text').map((b) => b.text || '');
+    const textBlocks = content.filter(b => b.type === 'text').map(b => b.text || '');
     const fullTextContent = textBlocks.join('');
     const contentPreview = fullTextContent.substring(0, 200);
 
