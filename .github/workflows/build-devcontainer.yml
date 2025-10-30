@@ -9,6 +9,11 @@ on:
     tags:
       - 'v*.*.*'
 
+# Cancel previous runs of this workflow
+concurrency:
+  group: devcontainer-build
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
