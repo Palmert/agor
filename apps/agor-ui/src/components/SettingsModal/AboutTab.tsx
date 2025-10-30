@@ -72,7 +72,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({
           {/* Connection Info */}
           <Card
             title="Connection Info"
-            bordered={false}
+            variant="borderless"
             style={{ maxWidth: 800, margin: '0 auto' }}
           >
             <Descriptions column={1} bordered size="small">
@@ -100,7 +100,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({
               {/* Daemon Config */}
               <Card
                 title="Daemon Config (Admin Only)"
-                bordered={false}
+                variant="borderless"
                 style={{ maxWidth: 800, margin: '0 auto' }}
               >
                 <Descriptions column={1} bordered size="small">
@@ -129,7 +129,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({
               {/* System Debug Info */}
               <Card
                 title="System Debug Info (Admin Only)"
-                bordered={false}
+                variant="borderless"
                 style={{ maxWidth: 800, margin: '0 auto' }}
               >
                 <Descriptions column={1} bordered size="small">
@@ -155,7 +155,10 @@ export const AboutTab: React.FC<AboutTabProps> = ({
           )}
 
           {/* Links */}
-          <Card bordered={false} style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
+          <Card
+            variant="borderless"
+            style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}
+          >
             <Space size="large">
               <a
                 href="https://github.com/mistercrunch/agor"

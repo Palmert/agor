@@ -7,14 +7,14 @@
 import type { Container } from '@tsparticles/engine';
 import Particles, { initParticlesEngine } from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useState } from 'react';
 
-export function ParticleBackground() {
+export const ParticleBackground = memo(function ParticleBackground() {
   const particlesId = useId();
   const [init, setInit] = useState(false);
 
   useEffect(() => {
-    initParticlesEngine(async (engine) => {
+    initParticlesEngine(async engine => {
       await loadSlim(engine);
     }).then(() => {
       console.log('tsParticles initialized');
@@ -127,4 +127,4 @@ export function ParticleBackground() {
       }}
     />
   );
-}
+});
