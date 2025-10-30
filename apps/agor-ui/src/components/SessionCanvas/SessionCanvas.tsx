@@ -1372,6 +1372,14 @@ const SessionCanvas = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [nodes, deleteObject]);
 
+  // Clear comment placement state when switching away from comment tool
+  useEffect(() => {
+    if (activeTool !== 'comment' && commentPlacement) {
+      setCommentPlacement(null);
+      setCommentInput('');
+    }
+  }, [activeTool, commentPlacement]);
+
   return (
     <div
       style={{
@@ -1425,6 +1433,12 @@ const SessionCanvas = ({
         elevateNodesOnSelect={false}
         panOnDrag={activeTool === 'select'}
         className={`tool-mode-${activeTool}`}
+        // Disable React Flow's default keyboard shortcuts to prevent conflicts
+        deleteKeyCode={null}
+        selectionKeyCode={null}
+        multiSelectionKeyCode={null}
+        panActivationKeyCode={null}
+        zoomActivationKeyCode={null}
       >
         <Background />
         <Controls position="top-left" showInteractive={false}>
