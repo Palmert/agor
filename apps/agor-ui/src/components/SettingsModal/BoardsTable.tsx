@@ -1,8 +1,8 @@
 import type { Board, Session, Worktree } from '@agor/core/types';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SmileOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Modal, Popconfirm, Popover, Space, Table, Typography } from 'antd';
-import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Flex, Form, Input, Modal, Popconfirm, Space, Table, Typography } from 'antd';
 import { useMemo, useState } from 'react';
+import { FormEmojiPickerInput } from '../EmojiPickerInput';
 import { JSONEditor, validateJSON } from '../JSONEditor';
 
 // Using Typography.Text directly to avoid DOM Text interface collision
@@ -27,7 +27,6 @@ export const BoardsTable: React.FC<BoardsTableProps> = ({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [form] = Form.useForm();
 
   // Calculate session count per board (worktree-centric model)
@@ -49,11 +48,6 @@ export const BoardsTable: React.FC<BoardsTableProps> = ({
 
     return counts;
   }, [boards, sessions, worktrees]);
-
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    form.setFieldValue('icon', emojiData.emoji);
-    setEmojiPickerOpen(false);
-  };
 
   const handleCreate = () => {
     form.validateFields().then(values => {
@@ -191,44 +185,17 @@ export const BoardsTable: React.FC<BoardsTableProps> = ({
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             label="Name"
-            name="name"
             rules={[{ required: true, message: 'Please enter a board name' }]}
+            style={{ marginBottom: 24 }}
           >
-            <Input placeholder="My Board" />
-          </Form.Item>
-
-          <Form.Item label="Icon" name="icon" style={{ marginBottom: 24 }}>
-            <Input.Group compact style={{ display: 'flex' }}>
-              <Form.Item noStyle shouldUpdate>
-                {() => (
-                  <Input
-                    prefix={
-                      <span style={{ fontSize: 20 }}>{form.getFieldValue('icon') || '📋'}</span>
-                    }
-                    readOnly
-                    style={{ cursor: 'default', flex: 1 }}
-                  />
-                )}
+            <Flex gap={8}>
+              <Form.Item name="icon" noStyle>
+                <FormEmojiPickerInput form={form} fieldName="icon" defaultEmoji="📋" />
               </Form.Item>
-              <Popover
-                content={
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={Theme.DARK}
-                    width={350}
-                    height={400}
-                  />
-                }
-                trigger="click"
-                open={emojiPickerOpen}
-                onOpenChange={setEmojiPickerOpen}
-                placement="right"
-              >
-                <Button icon={<SmileOutlined />} style={{ height: '32px' }}>
-                  Pick Emoji
-                </Button>
-              </Popover>
-            </Input.Group>
+              <Form.Item name="name" noStyle style={{ flex: 1 }}>
+                <Input placeholder="My Board" style={{ flex: 1 }} />
+              </Form.Item>
+            </Flex>
           </Form.Item>
 
           <Form.Item label="Description" name="description">
@@ -261,44 +228,17 @@ export const BoardsTable: React.FC<BoardsTableProps> = ({
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             label="Name"
-            name="name"
             rules={[{ required: true, message: 'Please enter a board name' }]}
+            style={{ marginBottom: 24 }}
           >
-            <Input placeholder="My Board" />
-          </Form.Item>
-
-          <Form.Item label="Icon" name="icon" style={{ marginBottom: 24 }}>
-            <Input.Group compact style={{ display: 'flex' }}>
-              <Form.Item noStyle shouldUpdate>
-                {() => (
-                  <Input
-                    prefix={
-                      <span style={{ fontSize: 20 }}>{form.getFieldValue('icon') || '📋'}</span>
-                    }
-                    readOnly
-                    style={{ cursor: 'default', flex: 1 }}
-                  />
-                )}
+            <Flex gap={8}>
+              <Form.Item name="icon" noStyle>
+                <FormEmojiPickerInput form={form} fieldName="icon" defaultEmoji="📋" />
               </Form.Item>
-              <Popover
-                content={
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={Theme.DARK}
-                    width={350}
-                    height={400}
-                  />
-                }
-                trigger="click"
-                open={emojiPickerOpen}
-                onOpenChange={setEmojiPickerOpen}
-                placement="right"
-              >
-                <Button icon={<SmileOutlined />} style={{ height: '32px' }}>
-                  Pick Emoji
-                </Button>
-              </Popover>
-            </Input.Group>
+              <Form.Item name="name" noStyle style={{ flex: 1 }}>
+                <Input placeholder="My Board" style={{ flex: 1 }} />
+              </Form.Item>
+            </Flex>
           </Form.Item>
 
           <Form.Item label="Description" name="description">

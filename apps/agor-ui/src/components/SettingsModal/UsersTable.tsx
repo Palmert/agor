@@ -1,20 +1,20 @@
 import type { CreateUserInput, UpdateUserInput, User } from '@agor/core/types';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SmileOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   Button,
+  Flex,
   Form,
   Input,
   Modal,
   Popconfirm,
-  Popover,
   Select,
   Space,
   Table,
   Tag,
   Typography,
 } from 'antd';
-import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
 import { useState } from 'react';
+import { FormEmojiPickerInput } from '../EmojiPickerInput';
 
 // Using Typography.Text directly to avoid DOM Text interface collision
 
@@ -29,13 +29,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, onCreate, onUpdat
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [form] = Form.useForm();
-
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    form.setFieldValue('emoji', emojiData.emoji);
-    setEmojiPickerOpen(false);
-  };
 
   const handleDelete = (userId: string) => {
     onDelete?.(userId);
@@ -204,6 +198,17 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, onCreate, onUpdat
         okText="Create"
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="Name" style={{ marginBottom: 24 }}>
+            <Flex gap={8}>
+              <Form.Item name="emoji" initialValue="👤" noStyle>
+                <FormEmojiPickerInput form={form} fieldName="emoji" defaultEmoji="👤" />
+              </Form.Item>
+              <Form.Item name="name" noStyle style={{ flex: 1 }}>
+                <Input placeholder="John Doe" style={{ flex: 1 }} />
+              </Form.Item>
+            </Flex>
+          </Form.Item>
+
           <Form.Item
             label="Email"
             name="email"
@@ -224,44 +229,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, onCreate, onUpdat
             ]}
           >
             <Input.Password placeholder="••••••••" />
-          </Form.Item>
-
-          <Form.Item label="Name" name="name">
-            <Input placeholder="John Doe" />
-          </Form.Item>
-
-          <Form.Item label="Emoji" name="emoji" initialValue="👤" style={{ marginBottom: 24 }}>
-            <Input.Group compact style={{ display: 'flex' }}>
-              <Form.Item noStyle shouldUpdate>
-                {() => (
-                  <Input
-                    prefix={
-                      <span style={{ fontSize: 20 }}>{form.getFieldValue('emoji') || '👤'}</span>
-                    }
-                    readOnly
-                    style={{ cursor: 'default', flex: 1 }}
-                  />
-                )}
-              </Form.Item>
-              <Popover
-                content={
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={Theme.DARK}
-                    width={350}
-                    height={400}
-                  />
-                }
-                trigger="click"
-                open={emojiPickerOpen}
-                onOpenChange={setEmojiPickerOpen}
-                placement="right"
-              >
-                <Button icon={<SmileOutlined />} style={{ height: '32px' }}>
-                  Pick Emoji
-                </Button>
-              </Popover>
-            </Input.Group>
           </Form.Item>
 
           <Form.Item
@@ -293,6 +260,17 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, onCreate, onUpdat
         okText="Save"
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="Name" style={{ marginBottom: 24 }}>
+            <Flex gap={8}>
+              <Form.Item name="emoji" noStyle>
+                <FormEmojiPickerInput form={form} fieldName="emoji" defaultEmoji="👤" />
+              </Form.Item>
+              <Form.Item name="name" noStyle style={{ flex: 1 }}>
+                <Input placeholder="John Doe" style={{ flex: 1 }} />
+              </Form.Item>
+            </Flex>
+          </Form.Item>
+
           <Form.Item
             label="Email"
             name="email"
@@ -306,44 +284,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, onCreate, onUpdat
 
           <Form.Item label="Password" name="password" help="Leave blank to keep current password">
             <Input.Password placeholder="••••••••" />
-          </Form.Item>
-
-          <Form.Item label="Name" name="name">
-            <Input placeholder="John Doe" />
-          </Form.Item>
-
-          <Form.Item label="Emoji" name="emoji" style={{ marginBottom: 24 }}>
-            <Input.Group compact style={{ display: 'flex' }}>
-              <Form.Item noStyle shouldUpdate>
-                {() => (
-                  <Input
-                    prefix={
-                      <span style={{ fontSize: 20 }}>{form.getFieldValue('emoji') || '👤'}</span>
-                    }
-                    readOnly
-                    style={{ cursor: 'default', flex: 1 }}
-                  />
-                )}
-              </Form.Item>
-              <Popover
-                content={
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={Theme.DARK}
-                    width={350}
-                    height={400}
-                  />
-                }
-                trigger="click"
-                open={emojiPickerOpen}
-                onOpenChange={setEmojiPickerOpen}
-                placement="right"
-              >
-                <Button icon={<SmileOutlined />} style={{ height: '32px' }}>
-                  Pick Emoji
-                </Button>
-              </Popover>
-            </Input.Group>
           </Form.Item>
 
           <Form.Item
