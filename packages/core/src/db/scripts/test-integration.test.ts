@@ -118,11 +118,12 @@ describe('Database Initialization', () => {
 // ============================================================================
 
 describe('ID Generation', () => {
-  it('should generate valid UUIDv7 format', () => {
+  it('should generate valid UUID format', () => {
     const id = generateId();
-    const uuidv7Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    // Accept both v4 (new) and v7 (legacy) UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-    expect(id).toMatch(uuidv7Regex);
+    expect(id).toMatch(uuidRegex);
   });
 
   it('should generate unique IDs', () => {

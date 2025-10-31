@@ -31,7 +31,7 @@ export interface StreamingCallbacks {
   /**
    * Called when message streaming starts
    *
-   * @param messageId - Unique ID for this message (agent generates via uuidv7)
+   * @param messageId - Unique ID for this message (agent generates via UUIDv4)
    * @param metadata - Initial metadata (role, timestamp, etc.)
    */
   onStreamStart(
