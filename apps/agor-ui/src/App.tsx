@@ -1,8 +1,10 @@
 import { getRepoReferenceOptions } from '@agor/core/config/browser';
 import { Alert, App as AntApp, ConfigProvider, Spin, theme } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { App as AgorApp } from './components/App';
 import { LoginPage } from './components/LoginPage';
+import { MobileApp } from './components/mobile/MobileApp';
 import { SandboxBanner } from './components/SandboxBanner';
 import { WelcomeModal } from './components/WelcomeModal';
 import {
@@ -13,6 +15,7 @@ import {
   useBoardActions,
   useSessionActions,
 } from './hooks';
+import { isMobileDevice } from './utils/deviceDetection';
 
 // Available agentic tools (formerly "agents")
 const availableAgents = [
@@ -22,8 +25,38 @@ const availableAgents = [
   { id: 'cursor', name: 'Cursor', icon: '✏️', installed: false, installable: false },
 ];
 
+/**
+ * DeviceRouter - Redirects users to mobile or desktop site based on device detection
+ */
+function DeviceRouter() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [hasChecked, setHasChecked] = useState(false);
+
+  useEffect(() => {
+    if (hasChecked) return;
+
+    const isMobile = isMobileDevice();
+    const isOnMobilePath = location.pathname.startsWith('/m');
+
+    // Redirect mobile devices to mobile site
+    if (isMobile && !isOnMobilePath) {
+      navigate('/m', { replace: true });
+    }
+    // Redirect desktop devices away from mobile site
+    else if (!isMobile && isOnMobilePath) {
+      navigate('/', { replace: true });
+    }
+
+    setHasChecked(true);
+  }, [location.pathname, navigate, hasChecked]);
+
+  return null;
+}
+
 function AppContent() {
   const { message } = AntApp.useApp();
+  const { token } = theme.useToken();
 
   // Fetch daemon auth configuration
   const {
@@ -117,8 +150,10 @@ function AppContent() {
           style={{
             height: '100vh',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: token.colorBgLayout,
           }}
         >
           <Spin size="large" />
@@ -179,8 +214,10 @@ function AppContent() {
           style={{
             height: '100vh',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: token.colorBgLayout,
           }}
         >
           <Spin size="large" />
@@ -200,8 +237,10 @@ function AppContent() {
           style={{
             height: '100vh',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: token.colorBgLayout,
           }}
         >
           <Spin size="large" />
@@ -258,8 +297,10 @@ function AppContent() {
           style={{
             height: '100vh',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: token.colorBgLayout,
           }}
         >
           <Spin size="large" />
@@ -858,94 +899,135 @@ function AppContent() {
   // Render main app
   return (
     <>
-      <SandboxBanner />
-      {welcomeModalOpen && (
-        <WelcomeModal
-          open={welcomeModalOpen}
-          onClose={() => setWelcomeModalOpen(false)}
-          stats={welcomeStats}
-          onAddRepo={handleWelcomeAddRepo}
-          onCreateWorktree={handleWelcomeCreateWorktree}
-          onNewSession={handleWelcomeNewSession}
-          onOpenApiKeys={handleWelcomeOpenApiKeys}
-          onDismiss={handleDismissOnboarding}
+      <DeviceRouter />
+      <Routes>
+        {/* Mobile routes */}
+        <Route
+          path="/m/*"
+          element={
+            <MobileApp
+              client={client}
+              user={user}
+              sessions={sessions}
+              tasks={tasks}
+              boards={boards}
+              comments={comments}
+              repos={repos}
+              worktrees={worktrees}
+              users={users}
+              onSendPrompt={handleSendPrompt}
+              onSendComment={handleSendComment}
+              onReplyComment={handleReplyComment}
+              onResolveComment={handleResolveComment}
+              onToggleReaction={handleToggleReaction}
+              onDeleteComment={handleDeleteComment}
+              onLogout={logout}
+            />
+          }
         />
-      )}
-      <AgorApp
-        client={client}
-        user={user}
-        sessions={sessions}
-        tasks={tasks}
-        availableAgents={availableAgents}
-        boards={boards}
-        boardObjects={boardObjects}
-        comments={comments}
-        repos={repos}
-        worktrees={worktrees}
-        users={users}
-        mcpServers={mcpServers}
-        sessionMcpServerIds={sessionMcpServerIds}
-        initialBoardId={boards[0]?.board_id}
-        openSettingsTab={settingsTabToOpen}
-        onSettingsClose={handleSettingsClose}
-        openNewWorktreeModal={openNewWorktree}
-        onNewWorktreeModalClose={handleNewWorktreeModalClose}
-        onCreateSession={handleCreateSession}
-        onForkSession={handleForkSession}
-        onSpawnSession={handleSpawnSession}
-        onSendPrompt={handleSendPrompt}
-        onUpdateSession={handleUpdateSession}
-        onDeleteSession={handleDeleteSession}
-        onCreateBoard={handleCreateBoard}
-        onUpdateBoard={handleUpdateBoard}
-        onDeleteBoard={handleDeleteBoard}
-        onCreateRepo={handleCreateRepo}
-        onUpdateRepo={handleUpdateRepo}
-        onDeleteRepo={handleDeleteRepo}
-        onDeleteWorktree={handleDeleteWorktree}
-        onUpdateWorktree={handleUpdateWorktree}
-        onCreateWorktree={handleCreateWorktree}
-        onStartEnvironment={handleStartEnvironment}
-        onStopEnvironment={handleStopEnvironment}
-        onCreateUser={handleCreateUser}
-        onUpdateUser={handleUpdateUser}
-        onDeleteUser={handleDeleteUser}
-        // biome-ignore lint/suspicious/noExplicitAny: CreateMCPServerInput vs Partial<MCPServer> type mismatch
-        onCreateMCPServer={handleCreateMCPServer as any}
-        onUpdateMCPServer={handleUpdateMCPServer}
-        onDeleteMCPServer={handleDeleteMCPServer}
-        onUpdateSessionMcpServers={handleUpdateSessionMcpServers}
-        onSendComment={handleSendComment}
-        onReplyComment={handleReplyComment}
-        onResolveComment={handleResolveComment}
-        onToggleReaction={handleToggleReaction}
-        onDeleteComment={handleDeleteComment}
-        onLogout={logout}
-      />
+
+        {/* Desktop routes */}
+        <Route
+          path="/*"
+          element={
+            <>
+              <SandboxBanner />
+              {welcomeModalOpen && (
+                <WelcomeModal
+                  open={welcomeModalOpen}
+                  onClose={() => setWelcomeModalOpen(false)}
+                  stats={welcomeStats}
+                  onAddRepo={handleWelcomeAddRepo}
+                  onCreateWorktree={handleWelcomeCreateWorktree}
+                  onNewSession={handleWelcomeNewSession}
+                  onOpenApiKeys={handleWelcomeOpenApiKeys}
+                  onDismiss={handleDismissOnboarding}
+                />
+              )}
+              <AgorApp
+                client={client}
+                user={user}
+                sessions={sessions}
+                tasks={tasks}
+                availableAgents={availableAgents}
+                boards={boards}
+                boardObjects={boardObjects}
+                comments={comments}
+                repos={repos}
+                worktrees={worktrees}
+                users={users}
+                mcpServers={mcpServers}
+                sessionMcpServerIds={sessionMcpServerIds}
+                initialBoardId={boards[0]?.board_id}
+                openSettingsTab={settingsTabToOpen}
+                onSettingsClose={handleSettingsClose}
+                openNewWorktreeModal={openNewWorktree}
+                onNewWorktreeModalClose={handleNewWorktreeModalClose}
+                onCreateSession={handleCreateSession}
+                onForkSession={handleForkSession}
+                onSpawnSession={handleSpawnSession}
+                onSendPrompt={handleSendPrompt}
+                onUpdateSession={handleUpdateSession}
+                onDeleteSession={handleDeleteSession}
+                onCreateBoard={handleCreateBoard}
+                onUpdateBoard={handleUpdateBoard}
+                onDeleteBoard={handleDeleteBoard}
+                onCreateRepo={handleCreateRepo}
+                onUpdateRepo={handleUpdateRepo}
+                onDeleteRepo={handleDeleteRepo}
+                onDeleteWorktree={handleDeleteWorktree}
+                onUpdateWorktree={handleUpdateWorktree}
+                onCreateWorktree={handleCreateWorktree}
+                onStartEnvironment={handleStartEnvironment}
+                onStopEnvironment={handleStopEnvironment}
+                onCreateUser={handleCreateUser}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
+                // biome-ignore lint/suspicious/noExplicitAny: CreateMCPServerInput vs Partial<MCPServer> type mismatch
+                onCreateMCPServer={handleCreateMCPServer as any}
+                onUpdateMCPServer={handleUpdateMCPServer}
+                onDeleteMCPServer={handleDeleteMCPServer}
+                onUpdateSessionMcpServers={handleUpdateSessionMcpServers}
+                onSendComment={handleSendComment}
+                onReplyComment={handleReplyComment}
+                onResolveComment={handleResolveComment}
+                onToggleReaction={handleToggleReaction}
+                onDeleteComment={handleDeleteComment}
+                onLogout={logout}
+              />
+            </>
+          }
+        />
+      </Routes>
     </>
   );
 }
 
 function App() {
+  // Determine base path: '/ui' in production (served by daemon), '/' in dev mode
+  const basename = import.meta.env.BASE_URL === '/ui/' ? '/ui' : '';
+
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#2e9a92', // Agor teal - primary brand color (darkened 20%)
-          colorSuccess: '#52c41a', // Keep Ant Design's vibrant green
-          colorWarning: '#faad14', // Keep Ant Design's amber
-          colorError: '#ff4d4f', // Keep Ant Design's red
-          colorInfo: '#2e9a92', // Match primary
-          colorLink: '#2e9a92', // Match primary for consistency
-          borderRadius: 8, // Slightly more rounded for modern feel
-        },
-      }}
-    >
-      <AntApp>
-        <AppContent />
-      </AntApp>
-    </ConfigProvider>
+    <BrowserRouter basename={basename}>
+      <ConfigProvider
+        theme={{
+          algorithm: theme.darkAlgorithm,
+          token: {
+            colorPrimary: '#2e9a92', // Agor teal - primary brand color (darkened 20%)
+            colorSuccess: '#52c41a', // Keep Ant Design's vibrant green
+            colorWarning: '#faad14', // Keep Ant Design's amber
+            colorError: '#ff4d4f', // Keep Ant Design's red
+            colorInfo: '#2e9a92', // Match primary
+            colorLink: '#2e9a92', // Match primary for consistency
+            borderRadius: 8, // Slightly more rounded for modern feel
+          },
+        }}
+      >
+        <AntApp>
+          <AppContent />
+        </AntApp>
+      </ConfigProvider>
+    </BrowserRouter>
   );
 }
 
