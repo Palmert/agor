@@ -760,6 +760,9 @@ export class GeminiPromptService {
       console.log(
         `🔑 [Gemini] Using per-user/global API key for ${userIdForApiKey?.substring(0, 8) ?? 'unknown user'}`
       );
+    } else {
+      // Clear stale API key to ensure SDK fails if no valid key is found
+      delete process.env.GEMINI_API_KEY;
     }
 
     // CRITICAL: Set up authentication (creates ContentGenerator and BaseLlmClient)

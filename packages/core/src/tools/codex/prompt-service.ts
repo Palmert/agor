@@ -354,6 +354,9 @@ ${mcpServersToml}`;
       console.log(
         `🔑 [Codex] Using per-user/global API key for ${userIdForApiKey?.substring(0, 8) ?? 'unknown user'}`
       );
+    } else {
+      // Clear stale API key to ensure SDK fails if no valid key is found
+      delete process.env.OPENAI_API_KEY;
     }
 
     // Recreate Codex client with fresh API key on every prompt
