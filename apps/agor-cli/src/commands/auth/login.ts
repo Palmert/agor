@@ -4,11 +4,11 @@
  * Prompts for email/password and stores JWT token for future CLI commands
  */
 
+import * as readline from 'node:readline';
 import { createRestClient, isDaemonRunning } from '@agor/core/api';
 import { getDaemonUrl } from '@agor/core/config';
 import { Command, Flags } from '@oclif/core';
 import chalk from 'chalk';
-import * as readline from 'node:readline';
 import { saveToken } from '../../lib/auth';
 
 export default class Login extends Command {
@@ -89,7 +89,8 @@ export default class Login extends Command {
         user: {
           user_id: authResult.user.user_id,
           email: authResult.user.email,
-          name: (authResult.user as any).name, // AuthenticatedUser doesn't include name, but it's returned
+          // biome-ignore lint/suspicious/noExplicitAny: AuthenticatedUser type doesn't include name, but it's returned
+          name: (authResult.user as any).name,
           role: authResult.user.role || 'viewer',
         },
         expiresAt,
@@ -99,6 +100,7 @@ export default class Login extends Command {
       this.log(chalk.green('✓ Logged in successfully'));
       this.log('');
       this.log(chalk.dim('User:'), chalk.cyan(authResult.user.email));
+      // biome-ignore lint/suspicious/noExplicitAny: AuthenticatedUser type doesn't include name, but it's returned
       const userName = (authResult.user as any).name;
       if (userName) {
         this.log(chalk.dim('Name:'), userName);
@@ -137,7 +139,7 @@ export default class Login extends Command {
     message: string,
     options: { type: 'input' | 'hide'; required: boolean }
   ): Promise<string> {
-    return new Promise<string>((resolve) => {
+    return new Promise<string>(resolve => {
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,

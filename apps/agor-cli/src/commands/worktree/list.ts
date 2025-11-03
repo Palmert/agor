@@ -4,15 +4,14 @@
  * Shows all worktrees, optionally filtered by repository.
  */
 
-import { createClient, isDaemonRunning } from '@agor/core/api';
-import { getDaemonUrl } from '@agor/core/config';
 import { formatShortId } from '@agor/core/db';
 import type { Repo, Worktree } from '@agor/core/types';
-import { Command, Flags } from '@oclif/core';
+import { Flags } from '@oclif/core';
 import chalk from 'chalk';
 import Table from 'cli-table3';
+import { BaseCommand } from '../../base-command';
 
-export default class WorktreeList extends Command {
+export default class WorktreeList extends BaseCommand {
   static description = 'List git worktrees';
 
   static examples = [
@@ -48,18 +47,10 @@ export default class WorktreeList extends Command {
   async run(): Promise<void> {
     const { flags } = await this.parse(WorktreeList);
 
-    // Check if daemon is running
-    const daemonUrl = await getDaemonUrl();
-    const running = await isDaemonRunning(daemonUrl);
-
-    if (!running) {
-      this.error(
-        `Daemon not running. Start it with: ${chalk.cyan('cd apps/agor-daemon && pnpm dev')}`
-      );
-    }
+    // Connect to daemon (auto-authenticates)
+    const client = await this.connectToDaemon();
 
     try {
-      const client = createClient(daemonUrl);
       const worktreesService = client.service('worktrees');
       const reposService = client.service('repos');
 
@@ -87,7 +78,7 @@ export default class WorktreeList extends Command {
         this.log('');
         this.log(`Create one with: ${chalk.cyan('agor worktree add <name> --repo-id <id>')}`);
         this.log('');
-        client.io.close();
+        await this.cleanupClient(client);
         process.exit(0);
         return;
       }
@@ -163,10 +154,11 @@ export default class WorktreeList extends Command {
       this.log(chalk.dim(`Showing ${allWorktrees.length} worktree(s)`));
       this.log('');
 
-      // Close socket
-      client.io.close();
+      // Cleanup
+      await this.cleanupClient(client);
       process.exit(0);
     } catch (error) {
+      await this.cleanupClient(client);
       this.error(
         `Failed to list worktrees: ${error instanceof Error ? error.message : String(error)}`
       );
