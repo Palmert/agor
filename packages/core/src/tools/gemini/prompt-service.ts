@@ -480,6 +480,28 @@ export class GeminiPromptService {
     sessionId: SessionID,
     permissionMode?: PermissionMode
   ): Promise<GeminiClient> {
+    // Resolve per-user API key FIRST, before checking for existing client
+    // This ensures we use the correct key even when reusing a cached client
+    const session = await this.sessionsRepo.findById(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const userIdForApiKey = session.created_by as import('../../types').UserID | undefined;
+    const resolvedApiKey = await resolveApiKey('GEMINI_API_KEY', {
+      userId: userIdForApiKey,
+      db: this.db,
+    });
+    if (resolvedApiKey) {
+      process.env.GEMINI_API_KEY = resolvedApiKey;
+      console.log(
+        `🔑 [Gemini] Using per-user/global API key for ${userIdForApiKey?.substring(0, 8) ?? 'unknown user'}`
+      );
+    } else {
+      // Clear stale API key to ensure SDK fails if no valid key is found
+      delete process.env.GEMINI_API_KEY;
+    }
+
     // Map Agor permission mode to Gemini ApprovalMode
     const approvalMode = this.mapPermissionMode(permissionMode || 'ask');
 
@@ -513,12 +535,7 @@ export class GeminiPromptService {
       return existingClient;
     }
 
-    // Get session metadata
-    const session = await this.sessionsRepo.findById(sessionId);
-    if (!session) {
-      throw new Error(`Session ${sessionId} not found`);
-    }
-
+    // Session was already fetched above for API key resolution
     // Determine working directory from worktree (worktree-centric architecture)
     let workingDirectory = process.cwd();
     if (session.worktree_id && this.worktreesRepo) {
@@ -748,26 +765,12 @@ export class GeminiPromptService {
     // CRITICAL: Initialize config first to set up tool registry, etc.
     await config.initialize();
 
-    // Resolve per-user API key with precedence: per-user > global config > env var
-    // This allows each user to have their own GEMINI_API_KEY
-    const userIdForApiKey = session.created_by as import('../../types').UserID | undefined;
-    const resolvedApiKey = await resolveApiKey('GEMINI_API_KEY', {
-      userId: userIdForApiKey,
-      db: this.db,
-    });
-    if (resolvedApiKey) {
-      process.env.GEMINI_API_KEY = resolvedApiKey;
-      console.log(
-        `🔑 [Gemini] Using per-user/global API key for ${userIdForApiKey?.substring(0, 8) ?? 'unknown user'}`
-      );
-    } else {
-      // Clear stale API key to ensure SDK fails if no valid key is found
-      delete process.env.GEMINI_API_KEY;
-    }
+    // NOTE: API key was already resolved in getOrCreateClient() before client was reused/created
+    // So process.env.GEMINI_API_KEY is already set with the correct per-user or global key
 
     // CRITICAL: Set up authentication (creates ContentGenerator and BaseLlmClient)
     // Use AuthType.USE_GEMINI for API key authentication
-    // The SDK will look for GEMINI_API_KEY environment variable
+    // The SDK will look for GEMINI_API_KEY environment variable (set in getOrCreateClient)
     await config.refreshAuth(AuthType.USE_GEMINI);
 
     // Try to load existing session file from SDK's filesystem storage
