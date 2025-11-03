@@ -13,6 +13,7 @@ export default class BoardList extends BaseCommand {
   static override examples = ['<%= config.bin %> <%= command.id %>'];
 
   public async run(): Promise<void> {
+    await this.parse(BoardList);
     const client = await this.connectToDaemon();
 
     try {
@@ -47,7 +48,7 @@ export default class BoardList extends BaseCommand {
 
       // Add rows
       for (const board of boards) {
-        const worktreeCount = boardObjects.filter((bo) => bo.board_id === board.board_id).length;
+        const worktreeCount = boardObjects.filter(bo => bo.board_id === board.board_id).length;
         table.push([
           board.board_id.substring(0, 8),
           `${board.icon || '📋'} ${board.name}`,
@@ -61,7 +62,9 @@ export default class BoardList extends BaseCommand {
       this.log(chalk.gray(`\nTotal: ${boards.length} board(s)`));
     } catch (error) {
       await this.cleanupClient(client);
-      this.error(`Failed to fetch boards: ${error instanceof Error ? error.message : String(error)}`);
+      this.error(
+        `Failed to fetch boards: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
 
     await this.cleanupClient(client);
