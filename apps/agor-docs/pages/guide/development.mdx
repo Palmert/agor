@@ -28,6 +28,26 @@ docker compose up
 **Cons:**
 - ❌ Docker-in-docker complexity if your worktree environments use Docker (e.g., `docker compose up` in environment configs)
 
+**Git Commits in Docker:**
+
+When using Docker, `pnpm install` installs Linux binaries (e.g., `turbo-linux-arm64`, `eslint-linux`), which won't run on your host OS. If you commit from your host machine, pre-commit hooks will fail because Husky tries to execute these Linux binaries.
+
+**Two solutions:**
+
+1. **Commit inside the container (Recommended)**
+   ```bash
+   docker compose exec agor-dev git add .
+   docker compose exec agor-dev git commit -m "your message"
+   ```
+   Hooks run inside the container with correct Linux binaries.
+
+2. **Reinstall node_modules on host**
+   ```bash
+   pnpm install  # Get host-specific binaries (macOS/Windows)
+   git commit -m "your message"  # Hooks use host binaries
+   ```
+   Note: This means you'll have both host and Linux binaries in node_modules.
+
 **Running multiple instances in parallel:**
 
 If you're developing across multiple branches, run each with unique ports:
