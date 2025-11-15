@@ -21,6 +21,41 @@ Power-user features to enhance your AI coding workflow. An image is worth a thou
 
 ---
 
+## 🔴 Favicon Status Indicator
+
+**See session activity at a glance, even in background tabs.** Your browser tab's favicon updates with status dots to show real-time activity:
+
+<div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+  <div style={{ textAlign: 'center' }}>
+    <img
+      src="/screenshots/favicon-white-dot.png"
+      alt="White dot lower-left: agent working"
+      style={{ width: '48px', height: '48px' }}
+    />
+    <p style={{ fontSize: '12px', marginTop: '8px' }}>⚪ Agent working</p>
+  </div>
+  <div style={{ textAlign: 'center' }}>
+    <img
+      src="/screenshots/favicon-green-dot.png"
+      alt="Green dot lower-right: ready for prompt"
+      style={{ width: '48px', height: '48px' }}
+    />
+    <p style={{ fontSize: '12px', marginTop: '8px' }}>🟢 Ready for prompt</p>
+  </div>
+  <div style={{ textAlign: 'center' }}>
+    <img
+      src="/screenshots/favicon-both.png"
+      alt="Both dots: working + ready"
+      style={{ width: '48px', height: '48px' }}
+    />
+    <p style={{ fontSize: '12px', marginTop: '8px' }}>⚪🟢 Both states</p>
+  </div>
+</div>
+
+Dots appear independently: white (lower-left) for running agents, green (lower-right) for ready sessions. Both can show simultaneously. Updates in real-time via WebSocket.
+
+---
+
 ## 🔔 Task Completion Chimes
 
 **Hear when your agents finish working.** Set up audio notifications for long-running tasks so you can multitask.
