@@ -208,14 +208,14 @@ export function initializeGeminiApiKey(
 
   const geminiApiKey = config.credentials?.GEMINI_API_KEY || envApiKey;
 
-  if (!geminiApiKey) {
+  if (!geminiApiKey || geminiApiKey.trim() === '') {
     console.warn('⚠️  No GEMINI_API_KEY found - will use OAuth authentication');
     console.warn('   To use API key: agor config set credentials.GEMINI_API_KEY <your-key>');
     console.warn('   Or set GEMINI_API_KEY environment variable');
     console.warn('   OAuth requires: gemini CLI installed and authenticated');
   }
 
-  return geminiApiKey;
+  return geminiApiKey && geminiApiKey.trim() !== '' ? geminiApiKey : undefined;
 }
 
 // Main async function

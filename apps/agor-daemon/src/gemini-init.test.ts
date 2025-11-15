@@ -217,9 +217,9 @@ describe('initializeGeminiApiKey', () => {
 
       const result = initializeGeminiApiKey(config, undefined);
 
-      // Whitespace string is truthy (validation happens in GeminiTool)
-      expect(result).toBe('   ');
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      // Whitespace-only string is treated as invalid
+      expect(result).toBeUndefined();
+      expect(consoleWarnSpy).toHaveBeenCalled();
     });
 
     it('should handle whitespace-only API key from env', () => {
@@ -229,8 +229,9 @@ describe('initializeGeminiApiKey', () => {
 
       const result = initializeGeminiApiKey(config, '   ');
 
-      expect(result).toBe('   ');
-      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      // Whitespace-only string is treated as invalid
+      expect(result).toBeUndefined();
+      expect(consoleWarnSpy).toHaveBeenCalled();
     });
   });
 
