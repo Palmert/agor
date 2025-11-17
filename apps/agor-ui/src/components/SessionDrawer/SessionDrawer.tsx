@@ -52,13 +52,11 @@ import { CreatedByTag } from '../metadata';
 import { PermissionModeSelector } from '../PermissionModeSelector';
 import {
   ContextWindowPill,
-  ForkPill,
   IssuePill,
   MessageCountPill,
   PullRequestPill,
   RepoPill,
   SessionIdPill,
-  SpawnPill,
   TimerPill,
   TokenCountPill,
 } from '../Pill';
@@ -515,9 +513,7 @@ const SessionDrawer = ({
 
       // Register helper to check if value is defined (not undefined)
       // This allows us to distinguish between false and undefined
-      Handlebars.registerHelper('isDefined', function (value) {
-        return value !== undefined;
-      });
+      Handlebars.registerHelper('isDefined', (value) => value !== undefined);
 
       const compiledTemplate = Handlebars.compile(spawnSubsessionTemplate);
 
@@ -615,9 +611,6 @@ const SessionDrawer = ({
         return 'default';
     }
   };
-
-  const isForked = !!session.genealogy.forked_from_session_id;
-  const isSpawned = !!session.genealogy.parent_session_id;
 
   // Check if session is currently running (disable prompts to avoid confusion)
   const isRunning = session.status === SessionStatus.RUNNING;
@@ -717,22 +710,9 @@ const SessionDrawer = ({
       }}
     >
       {/* All pills in one line */}
-      {(isForked || isSpawned || worktree || sessionMcpServerIds.length > 0) && (
+      {(worktree || sessionMcpServerIds.length > 0) && (
         <div style={{ marginBottom: token.sizeUnit }}>
           <Space size={8} wrap>
-            {/* Genealogy Tags */}
-            {isForked && session.genealogy.forked_from_session_id && (
-              <ForkPill
-                fromSessionId={session.genealogy.forked_from_session_id}
-                taskId={session.genealogy.fork_point_task_id}
-              />
-            )}
-            {isSpawned && session.genealogy.parent_session_id && (
-              <SpawnPill
-                fromSessionId={session.genealogy.parent_session_id}
-                taskId={session.genealogy.spawn_point_task_id}
-              />
-            )}
             {/* Worktree Info */}
             {worktree && repo && (
               <RepoPill
@@ -802,6 +782,7 @@ const SessionDrawer = ({
         scheduledFromWorktree={session.scheduled_from_worktree}
         scheduledRunAt={session.scheduled_run_at}
         isActive={open}
+        genealogy={session.genealogy}
       />
 
       {/* Queued Messages Drawer - Above Footer */}
