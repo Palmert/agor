@@ -11,6 +11,8 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { DAEMON } from './constants';
 import type { AgorConfig, UnknownJson } from './types';
+import { resolveValidApiKeySync } from './api-key-validator';
+import type { ApiKeyName } from './key-resolver';
 
 /**
  * Get Agor home directory (~/.agor)
@@ -309,23 +311,21 @@ export function loadConfigSync(): AgorConfig {
 }
 
 /**
- * Get credential with precedence: config.yaml > process.env
+ * Get credential with precedence: process.env > config.yaml
  *
- * This implements the rule that UI-set credentials (in config.yaml) take precedence
- * over environment variables. This allows users to override env vars via Settings UI.
+ * This implements the 12-factor app standard where environment variables (deployment-time
+ * configuration) take precedence over config files (application defaults). This allows
+ * operators to override config.yaml settings via environment variables.
  *
  * @param key - Credential key from CredentialKey enum
  * @returns API key or undefined
  */
-export function getCredential(
-  key: 'ANTHROPIC_API_KEY' | 'OPENAI_API_KEY' | 'GEMINI_API_KEY'
-): string | undefined {
+export function getCredential(key: ApiKeyName): string | undefined {
   try {
-    const config = loadConfigSync();
-    // Precedence: config.yaml > process.env
-    return config.credentials?.[key] || process.env[key];
+    // Use centralized resolver for consistent validation and precedence
+    return resolveValidApiKeySync(key);
   } catch {
-    // If config load fails, fall back to env var only
+    // If resolution fails, fall back to env var only
     return process.env[key];
   }
 }

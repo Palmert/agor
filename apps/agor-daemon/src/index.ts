@@ -10,6 +10,7 @@ import 'dotenv/config';
 // Patch console methods to respect LOG_LEVEL env var
 // This allows all console.log/debug calls to be filtered by log level
 import { patchConsole } from '@agor/core/utils/logger';
+import { API_KEYS, initializeApiKey } from '@agor/core/config';
 
 patchConsole();
 
@@ -183,41 +184,6 @@ const DB_PATH =
     ? process.env.DATABASE_URL || 'postgresql://localhost:5432/agor'
     : expandPath(process.env.AGOR_DB_PATH || 'file:~/.agor/agor.db');
 
-/**
- * Initialize Gemini API key with OAuth fallback support
- *
- * Priority: config.yaml > env var
- * If no API key is found, GeminiTool will fall back to OAuth via Gemini CLI
- *
- * @param config - Application config object
- * @param envApiKey - GEMINI_API_KEY from process.env
- * @returns Resolved API key or undefined (triggers OAuth fallback)
- */
-export function initializeGeminiApiKey(
-  config: { credentials?: { GEMINI_API_KEY?: string } },
-  envApiKey?: string
-): string | undefined {
-  // Handle GEMINI_API_KEY with priority: config.yaml > env var
-  // Config service will update process.env when credentials change (hot-reload)
-  // GeminiTool will read fresh credentials dynamically via refreshAuth()
-  // If no API key is found, GeminiTool will fall back to OAuth via Gemini CLI
-  if (config.credentials?.GEMINI_API_KEY && !envApiKey) {
-    process.env.GEMINI_API_KEY = config.credentials.GEMINI_API_KEY;
-    console.log('✅ Set GEMINI_API_KEY from config for Gemini');
-  }
-
-  const geminiApiKey = config.credentials?.GEMINI_API_KEY || envApiKey;
-
-  if (!geminiApiKey || geminiApiKey.trim() === '') {
-    console.warn('⚠️  No GEMINI_API_KEY found - will use OAuth authentication');
-    console.warn('   To use API key: agor config set credentials.GEMINI_API_KEY <your-key>');
-    console.warn('   Or set GEMINI_API_KEY environment variable');
-    console.warn('   OAuth requires: gemini CLI installed and authenticated');
-  }
-
-  return geminiApiKey && geminiApiKey.trim() !== '' ? geminiApiKey : undefined;
-}
-
 // Main async function
 async function main() {
   // Initialize Handlebars helpers for template rendering
@@ -266,23 +232,8 @@ async function main() {
   const envUiPort = process.env.UI_PORT ? Number.parseInt(process.env.UI_PORT, 10) : undefined;
   const UI_PORT = envUiPort || config.ui?.port || 5173;
 
-  // Handle ANTHROPIC_API_KEY with priority: config.yaml > env var
-  // Config service will update process.env when credentials change (hot-reload)
-  // Tools will read fresh credentials dynamically via getCredential() helper
-  if (config.credentials?.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-    process.env.ANTHROPIC_API_KEY = config.credentials.ANTHROPIC_API_KEY;
-    console.log('✅ Set ANTHROPIC_API_KEY from config for Claude Code');
-  }
-
-  const apiKey = config.credentials?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-
-  // Note: API key is optional - it can be configured per-tool or use Claude CLI's auth
-  // Only show info message if no key is found (not a warning since it's not required)
-  if (!apiKey) {
-    console.log('ℹ️  No ANTHROPIC_API_KEY found - will use Claude CLI auth if available');
-    console.log('   To use API key: agor config set credentials.ANTHROPIC_API_KEY <key>');
-    console.log('   Or run: claude login');
-  }
+  // Initialize ANTHROPIC_API_KEY using centralized validator
+  const anthropicApiKey = initializeApiKey(API_KEYS.ANTHROPIC_API_KEY);
 
   // Create Feathers app
   const app = feathersExpress(feathers());
@@ -326,7 +277,7 @@ async function main() {
         /^https?:\/\/localhost(:\d+)?$/,
       ];
 
-      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin));
+      const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
 
       if (isAllowed) {
         callback(null, true);
@@ -445,7 +396,7 @@ async function main() {
         maxHttpBufferSize: 1e6, // 1MB max message size
         transports: ['websocket', 'polling'], // Prefer WebSocket
       },
-      (io) => {
+      io => {
         // Store Socket.io server instance for shutdown
         socketServer = io;
 
@@ -509,7 +460,7 @@ async function main() {
         });
 
         // Configure Socket.io for cursor presence events
-        io.on('connection', (socket) => {
+        io.on('connection', socket => {
           activeConnections++;
           const user = (socket as FeathersSocket).feathers?.user;
           console.log(
@@ -560,7 +511,7 @@ async function main() {
           });
 
           // Track disconnections
-          socket.on('disconnect', (reason) => {
+          socket.on('disconnect', reason => {
             activeConnections--;
             console.log(
               `🔌 Socket.io disconnected: ${socket.id} (reason: ${reason}, remaining: ${activeConnections})`
@@ -568,7 +519,7 @@ async function main() {
           });
 
           // Handle socket errors
-          socket.on('error', (error) => {
+          socket.on('error', error => {
             console.error(`❌ Socket.io error on ${socket.id}:`, error);
           });
         });
@@ -680,7 +631,7 @@ async function main() {
     console.error('❌ Database migrations required!');
     console.error('');
     console.error(`   Found ${migrationStatus.pending.length} pending migration(s):`);
-    migrationStatus.pending.forEach((tag) => {
+    migrationStatus.pending.forEach(tag => {
       console.error(`     - ${tag}`);
     });
     console.error('');
@@ -913,7 +864,7 @@ async function main() {
         (validateQuery as any)(userQueryValidator),
       ],
       find: [
-        (context) => {
+        context => {
           const params = context.params as AuthenticatedParams;
 
           if (!params.provider) {
@@ -936,13 +887,13 @@ async function main() {
         },
       ],
       get: [
-        (context) => {
+        context => {
           ensureMinimumRole(context.params as AuthenticatedParams, 'member', 'view users');
           return context;
         },
       ],
       create: [
-        async (context) => {
+        async context => {
           const params = context.params as AuthenticatedParams;
 
           if (!params.provider) {
@@ -958,7 +909,7 @@ async function main() {
         },
       ],
       patch: [
-        (context) => {
+        context => {
           const params = context.params as AuthenticatedParams;
           const userId = context.id as string;
 
@@ -998,7 +949,7 @@ async function main() {
       ],
       create: [
         requireMinimumRole('member', 'create sessions'),
-        async (context) => {
+        async context => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const user = (context.params as { user?: { user_id: string; email: string } }).user;
           const userId = user?.user_id || 'anonymous';
@@ -1012,7 +963,7 @@ async function main() {
           );
 
           if (Array.isArray(context.data)) {
-            context.data.forEach((item) => {
+            context.data.forEach(item => {
               if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
@@ -1049,7 +1000,7 @@ async function main() {
     },
     after: {
       create: [
-        async (context) => {
+        async context => {
           // Skip MCP setup if MCP server is disabled
           if (config.daemon?.mcpEnabled === false) {
             return context;
@@ -1107,7 +1058,7 @@ async function main() {
           return context;
         },
         // Create OpenCode session if agentic_tool is 'opencode'
-        async (context) => {
+        async context => {
           const session = context.result as Session;
 
           if (session.agentic_tool === 'opencode') {
@@ -1176,7 +1127,7 @@ async function main() {
       ],
       create: [
         requireMinimumRole('member', 'create tasks'),
-        async (context) => {
+        async context => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const user = (context.params as { user?: { user_id: string; email: string } }).user;
           const userId = user?.user_id || 'anonymous';
@@ -1190,7 +1141,7 @@ async function main() {
           );
 
           if (Array.isArray(context.data)) {
-            context.data.forEach((item) => {
+            context.data.forEach(item => {
               if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
@@ -1213,14 +1164,14 @@ async function main() {
       ],
       create: [
         requireMinimumRole('member', 'create boards'),
-        async (context) => {
+        async context => {
           // Inject user_id if authenticated, otherwise use 'anonymous'
           const userId =
             (context.params as { user?: { user_id: string; email: string } }).user?.user_id ||
             'anonymous';
 
           if (Array.isArray(context.data)) {
-            context.data.forEach((item) => {
+            context.data.forEach(item => {
               if (!item.created_by) (item as Record<string, unknown>).created_by = userId;
             });
           } else if (context.data && !context.data.created_by) {
@@ -1231,7 +1182,7 @@ async function main() {
       ],
       patch: [
         requireMinimumRole('member', 'update boards'),
-        async (context) => {
+        async context => {
           // Handle atomic board object operations via _action parameter
           const contextData = context.data || {};
           const { _action, objectId, objectData, objects, deleteAssociatedSessions } =
@@ -1564,7 +1515,7 @@ async function main() {
   const claudeTool = new ClaudeTool(
     messagesRepo,
     sessionsRepo,
-    apiKey,
+    anthropicApiKey,
     app.service('messages'),
     sessionMCPRepo,
     mcpServerRepo,
@@ -1576,15 +1527,8 @@ async function main() {
     config.daemon?.mcpEnabled !== false // Pass MCP enabled flag
   );
 
-  // Handle OPENAI_API_KEY with priority: config.yaml > env var
-  // Config service will update process.env when credentials change (hot-reload)
-  // CodexTool will read fresh credentials dynamically via getCredential() helper
-  if (config.credentials?.OPENAI_API_KEY && !process.env.OPENAI_API_KEY) {
-    process.env.OPENAI_API_KEY = config.credentials.OPENAI_API_KEY;
-    console.log('✅ Set OPENAI_API_KEY from config for Codex');
-  }
-
-  const openaiApiKey = config.credentials?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  // Initialize OPENAI_API_KEY using centralized validator
+  const openaiApiKey = initializeApiKey(API_KEYS.OPENAI_API_KEY);
   const codexTool = new CodexTool(
     messagesRepo,
     sessionsRepo,
@@ -1596,14 +1540,11 @@ async function main() {
     db // Database for env var resolution
   );
 
-  if (!openaiApiKey) {
-    console.warn('⚠️  No OPENAI_API_KEY found - Codex sessions will fail');
-    console.warn('   Run: agor config set credentials.OPENAI_API_KEY <your-key>');
-    console.warn('   Or set OPENAI_API_KEY environment variable');
-  }
-
   // Initialize Gemini API key (with OAuth fallback support)
-  const geminiApiKey = initializeGeminiApiKey(config, process.env.GEMINI_API_KEY);
+  const geminiApiKey = initializeApiKey(API_KEYS.GEMINI_API_KEY, {
+    showOAuthWarnings: true,
+    oauthInstructions: ['OAuth requires: gemini CLI installed and authenticated'],
+  });
   const geminiTool = new GeminiTool(
     messagesRepo,
     sessionsRepo,
@@ -1630,7 +1571,7 @@ async function main() {
 
   if (config.opencode?.enabled !== false) {
     // Check OpenCode server availability on startup (non-blocking)
-    opencodeTool.checkInstalled().then((isAvailable) => {
+    opencodeTool.checkInstalled().then(isAvailable => {
       if (!isAvailable) {
         console.warn('⚠️  OpenCode server not available at', openCodeServerUrl);
         console.warn('   Start OpenCode with: opencode serve --port 4096');
@@ -1859,7 +1800,7 @@ async function main() {
             chunk,
           });
         },
-        onStreamEnd: (messageId) => {
+        onStreamEnd: messageId => {
           console.debug(
             `📡 [${new Date().toISOString()}] Streaming end: ${messageId.substring(0, 8)}`
           );
@@ -1892,7 +1833,7 @@ async function main() {
             chunk,
           });
         },
-        onThinkingEnd: (messageId) => {
+        onThinkingEnd: messageId => {
           console.debug(
             `📡 [${new Date().toISOString()}] Thinking end: ${messageId.substring(0, 8)}`
           );
@@ -1980,7 +1921,7 @@ async function main() {
               task.task_id,
               useStreaming ? streamingCallbacks : undefined
             ) || Promise.reject(new Error('OpenCode executeTask not available'))
-          ).then((result) => {
+          ).then(result => {
             console.log('[Daemon] OpenCodeTool.executeTask completed:', result);
             return {
               userMessageId: `user-${task.task_id}` as import('@agor/core/types').MessageID,
@@ -2007,7 +1948,7 @@ async function main() {
         }
 
         executeMethod
-          .then(async (result) => {
+          .then(async result => {
             try {
               // PHASE 3: Mark task as completed and update message count
               // (Messages already created with task_id, no need to patch)
@@ -2264,7 +2205,7 @@ async function main() {
               await safePatch('tasks', task.task_id, { status: TaskStatus.FAILED }, 'Task', params);
             }
           })
-          .catch(async (error) => {
+          .catch(async error => {
             console.error(`❌ Error executing prompt for task ${task.task_id}:`, error);
 
             // Check if error might be due to stale/invalid Agent SDK resume session
@@ -3317,9 +3258,9 @@ async function main() {
         // Disconnect all active clients first
         socketServer.disconnectSockets();
         // Give sockets a moment to disconnect
-        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        await new Promise<void>(resolve => setTimeout(resolve, 100));
         // Now close the server with a timeout
-        await new Promise<void>((resolve) => {
+        await new Promise<void>(resolve => {
           const timeout = setTimeout(() => {
             console.warn('⚠️  Server close timeout, forcing exit');
             resolve();
@@ -3334,7 +3275,7 @@ async function main() {
       } else {
         // Fallback: close HTTP server directly if Socket.io wasn't initialized
         await new Promise<void>((resolve, reject) => {
-          server.close((err) => {
+          server.close(err => {
             if (err) {
               console.error('❌ Error closing server:', err);
               reject(err);
@@ -3358,7 +3299,7 @@ async function main() {
 }
 
 // Start the daemon
-main().catch((error) => {
+main().catch(error => {
   console.error('Failed to start daemon:', error);
   process.exit(1);
 });

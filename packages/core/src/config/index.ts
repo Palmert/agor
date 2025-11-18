@@ -5,6 +5,7 @@
  */
 
 export * from './agor-yml';
+export * from './api-key-validator';
 export * from './config-manager';
 export * from './constants';
 export * from './env-blocklist';

@@ -9,7 +9,12 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '@anthropic-ai/claude-agent-sdk/sdk';
-import { getDaemonUrl, resolveApiKey, resolveUserEnvironment } from '../../config';
+import {
+  getDaemonUrl,
+  resolveApiKey,
+  resolveUserEnvironment,
+  sanitizeApiKeyForLogging,
+} from '../../config';
 import type { Database } from '../../db/client';
 import type { MCPServerRepository } from '../../db/repositories/mcp-servers';
 import type { MessagesRepository } from '../../db/repositories/messages';
@@ -569,7 +574,7 @@ export async function setupQuery(
     console.error(`❌ CRITICAL: query() threw synchronous error (very unusual):`, syncError);
     console.error(`   Claude Code path: ${claudeCodePath}`);
     console.error(`   CWD: ${cwd}`);
-    console.error(`   API key set: ${apiKey ? 'YES' : 'NO'}`);
+    console.error(`   API key: ${sanitizeApiKeyForLogging(apiKey)}`);
     console.error(`   Resume session: ${queryOptions.resume || 'none (fresh session)'}`);
     throw syncError;
   }

@@ -14,7 +14,13 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { type JsonMap, parse as parseToml, stringify as stringifyToml } from '@iarna/toml';
 import { Codex, type Thread, type ThreadItem } from '@openai/codex-sdk';
-import { ensureCodexHome, resolveApiKey, resolveUserEnvironment } from '../../config';
+import {
+  API_KEYS,
+  ensureCodexHome,
+  resolveApiKey,
+  resolveUserEnvironment,
+  sanitizeApiKeyForLogging,
+} from '../../config';
 import type { Database } from '../../db/client';
 import type { MessagesRepository } from '../../db/repositories/messages';
 import type { SessionMCPServerRepository } from '../../db/repositories/session-mcp-servers';
@@ -127,11 +133,11 @@ export class CodexPromptService {
     // Store API key for reinitializing SDK
     this.apiKey = apiKey;
     this.db = db;
-    const initialApiKey = apiKey || process.env.OPENAI_API_KEY || '';
-    this.lastApiKey = initialApiKey;
-    // Initialize Codex SDK
+    // Initialize Codex SDK with provided API key (already resolved by daemon)
+    // Runtime resolution happens in promptSessionStreaming via resolveApiKey
+    this.lastApiKey = apiKey || '';
     this.codex = new Codex({
-      apiKey: initialApiKey,
+      apiKey: this.lastApiKey,
     });
   }
 
@@ -144,7 +150,8 @@ export class CodexPromptService {
    */
   private reinitializeCodex(): void {
     console.log('🔄 [Codex] Reinitializing SDK to pick up config changes...');
-    const apiKey = this.apiKey || process.env.OPENAI_API_KEY || '';
+    // Use stored API key (already resolved by daemon or runtime)
+    const apiKey = this.apiKey || '';
     this.codex = new Codex({
       apiKey,
     });
@@ -162,12 +169,16 @@ export class CodexPromptService {
   private refreshClient(currentApiKey: string): void {
     // Only recreate if API key changed (prevents memory leak - issue #133)
     if (this.lastApiKey !== currentApiKey) {
-      console.log('🔄 [Codex] API key changed, reinitializing SDK...');
+      console.log(
+        `🔄 [Codex] API key changed (${sanitizeApiKeyForLogging(this.lastApiKey)} → ${sanitizeApiKeyForLogging(currentApiKey)}), reinitializing SDK...`
+      );
       this.codex = new Codex({
         apiKey: currentApiKey,
       });
       this.lastApiKey = currentApiKey;
-      console.log('✅ [Codex] SDK reinitialized with new API key');
+      console.log(
+        `✅ [Codex] SDK reinitialized with API key: ${sanitizeApiKeyForLogging(currentApiKey)}`
+      );
     }
   }
 
@@ -199,12 +210,12 @@ export class CodexPromptService {
 
     console.log(`📊 [Codex MCP] Found ${mcpServers.length} MCP server(s) for session`);
     if (mcpServers.length > 0) {
-      console.log(`   Servers: ${mcpServers.map((s) => `${s.name} (${s.transport})`).join(', ')}`);
+      console.log(`   Servers: ${mcpServers.map(s => `${s.name} (${s.transport})`).join(', ')}`);
     }
 
     // Filter MCP servers: Codex ONLY supports stdio transport (not HTTP/SSE)
-    const stdioServers = mcpServers.filter((s) => s.transport === 'stdio');
-    const unsupportedServers = mcpServers.filter((s) => s.transport !== 'stdio');
+    const stdioServers = mcpServers.filter(s => s.transport === 'stdio');
+    const unsupportedServers = mcpServers.filter(s => s.transport !== 'stdio');
 
     if (unsupportedServers.length > 0) {
       console.warn(
@@ -216,7 +227,7 @@ export class CodexPromptService {
     }
 
     // Create hash to detect changes (include network access in hash)
-    const configHash = `${approvalPolicy}:${networkAccess}:${JSON.stringify(stdioServers.map((s) => s.mcp_server_id))}`;
+    const configHash = `${approvalPolicy}:${networkAccess}:${JSON.stringify(stdioServers.map(s => s.mcp_server_id))}`;
 
     const codexHome = await ensureCodexHome();
     process.env.CODEX_HOME = codexHome;
@@ -347,7 +358,7 @@ export class CodexPromptService {
     this.reinitializeCodex();
     if (stdioServers.length > 0) {
       console.log(
-        `✅ [Codex MCP] Configured ${stdioServers.length} STDIO MCP server(s): ${stdioServers.map((s) => s.name).join(', ')}`
+        `✅ [Codex MCP] Configured ${stdioServers.length} STDIO MCP server(s): ${stdioServers.map(s => s.name).join(', ')}`
       );
     }
 

@@ -1,3 +1,5 @@
+import type { ApiKeyConfig, ApiKeyName } from '@agor/core/config';
+import { API_KEYS } from '@agor/core/config';
 import { CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Button, Input, Space, Tag, Typography, theme } from 'antd';
 import { useState } from 'react';
@@ -23,37 +25,8 @@ export interface ApiKeyFieldsProps {
   disabled?: boolean;
 }
 
-interface KeyFieldConfig {
-  field: keyof ApiKeyStatus;
-  label: string;
-  description: string;
-  placeholder: string;
-  docUrl: string;
-}
-
-const KEY_CONFIGS: KeyFieldConfig[] = [
-  {
-    field: 'ANTHROPIC_API_KEY',
-    label: 'Anthropic API Key',
-    description: '(Claude Code / Agent SDK)',
-    placeholder: 'sk-ant-api03-...',
-    docUrl: 'https://console.anthropic.com',
-  },
-  {
-    field: 'OPENAI_API_KEY',
-    label: 'OpenAI API Key',
-    description: '(Codex)',
-    placeholder: 'sk-proj-...',
-    docUrl: 'https://platform.openai.com/api-keys',
-  },
-  {
-    field: 'GEMINI_API_KEY',
-    label: 'Gemini API Key',
-    description: '',
-    placeholder: 'AIza...',
-    docUrl: 'https://aistudio.google.com/app/apikey',
-  },
-];
+// Use core API_KEYS registry (single source of truth)
+const KEY_CONFIGS: ApiKeyConfig[] = Object.values(API_KEYS);
 
 export const ApiKeyFields: React.FC<ApiKeyFieldsProps> = ({
   keyStatus,
@@ -70,15 +43,15 @@ export const ApiKeyFields: React.FC<ApiKeyFieldsProps> = ({
     if (!value) return;
 
     await onSave(field, value);
-    setInputValues((prev) => ({ ...prev, [field]: '' }));
+    setInputValues(prev => ({ ...prev, [field]: '' }));
   };
 
-  const renderKeyField = (config: KeyFieldConfig) => {
-    const { field, label, description, placeholder, docUrl } = config;
-    const isSet = keyStatus[field];
+  const renderKeyField = (config: ApiKeyConfig) => {
+    const { keyName, label, description, placeholder, docUrl } = config;
+    const isSet = keyStatus[keyName as ApiKeyName];
 
     return (
-      <div key={field} style={{ marginBottom: token.marginLG }}>
+      <div key={keyName} style={{ marginBottom: token.marginLG }}>
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <Space>
             <Text strong>{label}</Text>
@@ -98,8 +71,8 @@ export const ApiKeyFields: React.FC<ApiKeyFieldsProps> = ({
             <Button
               danger
               icon={<DeleteOutlined />}
-              onClick={() => onClear(field)}
-              loading={saving[field]}
+              onClick={() => onClear(keyName as keyof ApiKeyStatus)}
+              loading={saving[keyName]}
               disabled={disabled}
             >
               Clear Key
@@ -108,17 +81,17 @@ export const ApiKeyFields: React.FC<ApiKeyFieldsProps> = ({
             <Space.Compact style={{ width: '100%' }}>
               <Input.Password
                 placeholder={placeholder}
-                value={inputValues[field] || ''}
-                onChange={(e) => setInputValues((prev) => ({ ...prev, [field]: e.target.value }))}
-                onPressEnter={() => handleSave(field)}
+                value={inputValues[keyName] || ''}
+                onChange={e => setInputValues(prev => ({ ...prev, [keyName]: e.target.value }))}
+                onPressEnter={() => handleSave(keyName)}
                 style={{ flex: 1 }}
                 disabled={disabled}
               />
               <Button
                 type="primary"
-                onClick={() => handleSave(field)}
-                loading={saving[field]}
-                disabled={disabled || !inputValues[field]?.trim()}
+                onClick={() => handleSave(keyName as keyof ApiKeyStatus)}
+                loading={saving[keyName]}
+                disabled={disabled || !inputValues[keyName]?.trim()}
               >
                 Save
               </Button>
@@ -138,8 +111,8 @@ export const ApiKeyFields: React.FC<ApiKeyFieldsProps> = ({
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      {KEY_CONFIGS.filter((config) => config.field in keyStatus).map((config) =>
-        renderKeyField(config)
+      {KEY_CONFIGS.filter((config): config is ApiKeyConfig => config.keyName in keyStatus).map(
+        config => renderKeyField(config)
       )}
     </Space>
   );
