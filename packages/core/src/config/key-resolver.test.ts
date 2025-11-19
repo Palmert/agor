@@ -29,6 +29,24 @@ vi.mock('../db/schema', () => ({
   },
 }));
 
+// Mock database wrapper to intercept select() calls
+vi.mock('../db/database-wrapper', () => ({
+  select: vi.fn((db: any) => {
+    // If the db has a mock select chain, use it
+    if (db?._mockSelectChain) {
+      return db._mockSelectChain;
+    }
+    // Otherwise return a default mock
+    return {
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          one: vi.fn().mockResolvedValue(null),
+        })),
+      })),
+    };
+  }),
+}));
+
 import { decryptApiKey } from '../db';
 import type { UserID } from '../types';
 import { loadConfig, loadConfigSync } from './config-manager';
@@ -155,10 +173,10 @@ describe('resolveApiKey (async with user context)', () => {
     it('should return per-user key when available (highest precedence)', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {
                   api_keys: {
@@ -168,7 +186,7 @@ describe('resolveApiKey (async with user context)', () => {
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       process.env.ANTHROPIC_API_KEY = 'env-key';
@@ -186,10 +204,10 @@ describe('resolveApiKey (async with user context)', () => {
     it('should return env key when per-user key is not set', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {
                   api_keys: {}, // No key set
@@ -197,7 +215,7 @@ describe('resolveApiKey (async with user context)', () => {
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       process.env.OPENAI_API_KEY = 'env-key';
@@ -214,10 +232,10 @@ describe('resolveApiKey (async with user context)', () => {
     it('should return config key when per-user and env are not set', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {
                   api_keys: {},
@@ -225,7 +243,7 @@ describe('resolveApiKey (async with user context)', () => {
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       delete process.env.GEMINI_API_KEY;
@@ -242,16 +260,16 @@ describe('resolveApiKey (async with user context)', () => {
     it('should return undefined when no key is found anywhere', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: { api_keys: {} },
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       delete process.env.ANTHROPIC_API_KEY;
@@ -322,13 +340,13 @@ describe('resolveApiKey (async with user context)', () => {
     it('should fall back to env/config when DB query fails', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockRejectedValue(new Error('DB connection failed')),
+              one: vi.fn().mockRejectedValue(new Error('DB connection failed')),
             })),
           })),
-        })),
+        },
       } as any;
 
       process.env.ANTHROPIC_API_KEY = 'env-key';
@@ -348,13 +366,13 @@ describe('resolveApiKey (async with user context)', () => {
     it('should fall back to env/config when user not found', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue(null), // User not found
+              one: vi.fn().mockResolvedValue(null), // User not found
             })),
           })),
-        })),
+        },
       } as any;
 
       process.env.OPENAI_API_KEY = 'env-key';
@@ -370,10 +388,10 @@ describe('resolveApiKey (async with user context)', () => {
     it('should fall back to env/config when decryption fails', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {
                   api_keys: {
@@ -383,7 +401,7 @@ describe('resolveApiKey (async with user context)', () => {
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       // Mock decryption failure
@@ -405,16 +423,16 @@ describe('resolveApiKey (async with user context)', () => {
     it('should handle user data without api_keys field', async () => {
       const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {}, // No api_keys field
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       process.env.ANTHROPIC_API_KEY = 'env-key';
@@ -437,20 +455,20 @@ describe('resolveApiKey (async with user context)', () => {
       vi.mocked(decryptApiKey).mockReturnValueOnce(sensitiveKey);
 
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: userId,
                 data: {
                   api_keys: {
-                    ANTHROPIC_API_KEY: 'encrypted-value',
+                    ANTHROPIC_API_KEY: 'encrypted-sensitive-key', // Will be decrypted
                   },
                 },
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       await resolveApiKey('ANTHROPIC_API_KEY', { userId, db: mockDb });
@@ -491,7 +509,7 @@ describe('resolveApiKey (async with user context)', () => {
   describe('All API key types', () => {
     const keyTypes: ApiKeyName[] = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'];
 
-    keyTypes.forEach(keyType => {
+    keyTypes.forEach((keyType) => {
       it(`should resolve ${keyType} with correct precedence`, async () => {
         const userId = '01234567-89ab-cdef-0123-456789abcdef' as UserID;
 
@@ -499,10 +517,10 @@ describe('resolveApiKey (async with user context)', () => {
         vi.mocked(decryptApiKey).mockReturnValueOnce('yek-resu-detpyrcne');
 
         const mockDb = {
-          select: vi.fn(() => ({
+          _mockSelectChain: {
             from: vi.fn(() => ({
               where: vi.fn(() => ({
-                get: vi.fn().mockResolvedValue({
+                one: vi.fn().mockResolvedValue({
                   user_id: userId,
                   data: {
                     api_keys: {
@@ -512,7 +530,7 @@ describe('resolveApiKey (async with user context)', () => {
                 }),
               })),
             })),
-          })),
+          },
         } as any;
 
         delete process.env[keyType]; // Ensure env doesn't override
@@ -537,10 +555,10 @@ describe('resolveApiKey (async with user context)', () => {
       };
 
       const mockDb = {
-        select: vi.fn(() => ({
+        _mockSelectChain: {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              get: vi.fn().mockResolvedValue({
+              one: vi.fn().mockResolvedValue({
                 user_id: session.created_by,
                 data: {
                   api_keys: {
@@ -550,7 +568,7 @@ describe('resolveApiKey (async with user context)', () => {
               }),
             })),
           })),
-        })),
+        },
       } as any;
 
       vi.mocked(loadConfig).mockResolvedValue({
@@ -567,11 +585,6 @@ describe('resolveApiKey (async with user context)', () => {
     });
 
     it('should handle anonymous user (no userId)', async () => {
-      const session = {
-        session_id: 'session-123',
-        created_by: 'anonymous',
-      };
-
       process.env.OPENAI_API_KEY = 'global-env-key';
       vi.mocked(loadConfig).mockResolvedValue({
         credentials: { OPENAI_API_KEY: 'config-key' },
